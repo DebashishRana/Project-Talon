@@ -60,6 +60,18 @@ def get_storage():
         azure_storage = get_azure_storage()
     return azure_storage
 
+
+def _delete_blob_if_present(storage, blob_name: Optional[str], container: Optional[str]) -> None:
+    """Best-effort cleanup for blobs that may already have been removed."""
+    if not blob_name or not container:
+        return
+
+    try:
+        if storage.blob_exists(blob_name, container):
+            storage.delete_blob(blob_name, container)
+    except Exception as e:
+        print(f"Azure cleanup skipped for {container}/{blob_name}: {e}")
+
 # Initialize processors
 doc_processor = DocumentProcessor()
 validator = DocumentValidator()
@@ -81,6 +93,8 @@ def init_db():
             blob_name TEXT,
             container TEXT,
             verified BOOLEAN DEFAULT 0,
+            storage_status TEXT DEFAULT 'staged',
+            retention_until TEXT,
             metadata TEXT,
             created_at TEXT,
             verified_at TEXT
@@ -98,9 +112,23 @@ def init_db():
     _add_uploads_column("document_type", "document_type TEXT")
     _add_uploads_column("container", "container TEXT")
     _add_uploads_column("verified", "verified BOOLEAN DEFAULT 0")
+    _add_uploads_column("storage_status", "storage_status TEXT DEFAULT 'staged'")
+    _add_uploads_column("retention_until", "retention_until TEXT")
     _add_uploads_column("metadata", "metadata TEXT")
     _add_uploads_column("created_at", "created_at TEXT")
     _add_uploads_column("verified_at", "verified_at TEXT")
+
+    cursor.execute(
+        """
+        UPDATE uploads
+        SET storage_status = CASE
+            WHEN verified = 1 AND container = ? THEN 'retained'
+            WHEN verified = 1 THEN COALESCE(storage_status, 'deleted')
+            ELSE COALESCE(storage_status, 'staged')
+        END
+        """,
+        (settings.AZURE_STORAGE_CONTAINER_VERIFIED,)
+    )
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS scan_logs (
@@ -188,8 +216,8 @@ async def request_upload_sas(
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO uploads (id, filename, file_type, blob_name, container, verified, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO uploads (id, filename, file_type, blob_name, container, verified, storage_status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             file_id,
             filename,
@@ -197,6 +225,7 @@ async def request_upload_sas(
             blob_name,
             settings.AZURE_STORAGE_CONTAINER_INCOMING,
             False,
+            'staged',
             datetime.utcnow().isoformat()
         ))
         conn.commit()
@@ -220,7 +249,7 @@ async def complete_upload(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """
-    Phase 2: Process uploaded file, extract metadata, verify, and move to verified container.
+    Phase 2: Process uploaded file, extract metadata, verify, and clean up the staging blob.
     Called after frontend completes direct upload to Azure.
     """
     if not _is_valid_token(credentials.credentials):
@@ -259,7 +288,7 @@ async def complete_upload(
         # Validate file size
         if len(contents) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
             # Delete invalid upload
-            storage.delete_blob(blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
+            _delete_blob_if_present(storage, blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
             cursor.execute("DELETE FROM uploads WHERE id = ?", (file_id,))
             conn.commit()
             conn.close()
@@ -276,26 +305,22 @@ async def complete_upload(
         is_valid = validation_result.get("status") in ["valid", "partial"]
         
         if is_valid:
-            # Copy to verified container
-            storage.copy_blob(
-                blob_name,
-                settings.AZURE_STORAGE_CONTAINER_INCOMING,
-                blob_name,
-                settings.AZURE_STORAGE_CONTAINER_VERIFIED
-            )
-            
-            # Delete from incoming
-            storage.delete_blob(blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
-            
+            # Default behavior: staging only. Process the file, then remove the blob.
+            storage_status = "deleted"
+            retention_until = None
+            _delete_blob_if_present(storage, blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
+
             # Update database
             cursor.execute("""
                 UPDATE uploads 
-                SET document_type = ?, container = ?, verified = ?, metadata = ?, verified_at = ?
+                SET document_type = ?, container = ?, verified = ?, storage_status = ?, retention_until = ?, metadata = ?, verified_at = ?
                 WHERE id = ?
             """, (
                 doc_type,
-                settings.AZURE_STORAGE_CONTAINER_VERIFIED,
+                None,
                 True,
+                storage_status,
+                retention_until,
                 json.dumps(metadata),
                 datetime.utcnow().isoformat(),
                 file_id
@@ -309,11 +334,13 @@ async def complete_upload(
                 "verified": True,
                 "document_type": doc_type,
                 "metadata": metadata,
-                "validation": validation_result
+                "validation": validation_result,
+                "storage_status": storage_status,
+                "retention_until": retention_until
             }
         else:
             # Verification failed - delete from incoming immediately
-            storage.delete_blob(blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
+            _delete_blob_if_present(storage, blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
             cursor.execute("DELETE FROM uploads WHERE id = ?", (file_id,))
             conn.commit()
             conn.close()
@@ -370,8 +397,8 @@ async def request_multiple_upload_sas(
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO uploads (id, filename, file_type, blob_name, container, verified, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO uploads (id, filename, file_type, blob_name, container, verified, storage_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 file_id,
                 filename,
@@ -379,6 +406,7 @@ async def request_multiple_upload_sas(
                 blob_name,
                 settings.AZURE_STORAGE_CONTAINER_INCOMING,
                 False,
+                'staged',
                 datetime.utcnow().isoformat()
             ))
             conn.commit()
@@ -408,7 +436,7 @@ async def complete_multiple_uploads(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """
-    Phase 2: Process multiple uploaded files.
+    Phase 2: Process multiple uploaded files and clean up the staging blobs.
     Called after frontend completes all direct uploads.
     """
     if not _is_valid_token(credentials.credentials):
@@ -465,7 +493,7 @@ async def complete_multiple_uploads(
             
             # Validate size
             if len(contents) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
-                storage.delete_blob(blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
+                _delete_blob_if_present(storage, blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
                 cursor.execute("DELETE FROM uploads WHERE id = ?", (file_id,))
                 conn.commit()
                 conn.close()
@@ -486,24 +514,22 @@ async def complete_multiple_uploads(
             is_valid = validation_result.get("status") in ["valid", "partial"]
             
             if is_valid:
-                # Move to verified
-                storage.copy_blob(
-                    blob_name,
-                    settings.AZURE_STORAGE_CONTAINER_INCOMING,
-                    blob_name,
-                    settings.AZURE_STORAGE_CONTAINER_VERIFIED
-                )
-                storage.delete_blob(blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
-                
+                # Staging-only cleanup: processed files are removed from Blob by default.
+                storage_status = "deleted"
+                retention_until = None
+                _delete_blob_if_present(storage, blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
+
                 # Update DB
                 cursor.execute("""
                     UPDATE uploads 
-                    SET document_type = ?, container = ?, verified = ?, metadata = ?, verified_at = ?
+                    SET document_type = ?, container = ?, verified = ?, storage_status = ?, retention_until = ?, metadata = ?, verified_at = ?
                     WHERE id = ?
                 """, (
                     doc_type,
-                    settings.AZURE_STORAGE_CONTAINER_VERIFIED,
+                    None,
                     True,
+                    storage_status,
+                    retention_until,
                     json.dumps(metadata),
                     datetime.utcnow().isoformat(),
                     file_id
@@ -518,11 +544,13 @@ async def complete_multiple_uploads(
                     "verified": True,
                     "document_type": doc_type,
                     "metadata": metadata,
-                    "validation": validation_result
+                    "validation": validation_result,
+                    "storage_status": storage_status,
+                    "retention_until": retention_until
                 })
             else:
                 # Delete failed verification
-                storage.delete_blob(blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
+                _delete_blob_if_present(storage, blob_name, settings.AZURE_STORAGE_CONTAINER_INCOMING)
                 cursor.execute("DELETE FROM uploads WHERE id = ?", (file_id,))
                 conn.commit()
                 conn.close()
@@ -572,7 +600,7 @@ async def generate_qr_code(
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT blob_name, container, verified FROM uploads WHERE id = ?",
+            "SELECT blob_name, container, verified, storage_status FROM uploads WHERE id = ?",
             (file_id,)
         )
         row = cursor.fetchone()
@@ -581,10 +609,19 @@ async def generate_qr_code(
         if not row:
             raise HTTPException(status_code=404, detail="File not found")
         
-        blob_name, container, verified = row
+        blob_name, container, verified, storage_status = row
         
         if not verified:
             raise HTTPException(status_code=400, detail="Document not verified")
+
+        if storage_status != "retained":
+            raise HTTPException(
+                status_code=410,
+                detail="Document blob was cleaned up after processing and is no longer available"
+            )
+
+        if not container or not storage.blob_exists(blob_name, container):
+            raise HTTPException(status_code=410, detail="Document blob is no longer available")
         
         # Generate short-lived read-only SAS URL (30-60 seconds)
         sas_url = storage.generate_read_sas_url(blob_name, container)
@@ -686,7 +723,7 @@ async def delete_verified_document(
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT blob_name, container FROM uploads WHERE id = ?",
+            "SELECT blob_name, container, storage_status FROM uploads WHERE id = ?",
             (file_id,)
         )
         row = cursor.fetchone()
@@ -695,13 +732,10 @@ async def delete_verified_document(
             conn.close()
             raise HTTPException(status_code=404, detail="File not found")
         
-        blob_name, container = row
+        blob_name, container, storage_status = row
         
-        # Delete from storage
-        try:
-            storage.delete_blob(blob_name, container)
-        except Exception as e:
-            print(f"Azure delete error: {e}")
+        # Delete from storage if the blob still exists.
+        _delete_blob_if_present(storage, blob_name, container)
         
         # Delete from database
         cursor.execute("DELETE FROM uploads WHERE id = ?", (file_id,))
@@ -724,7 +758,7 @@ async def list_files(credentials: HTTPAuthorizationCredentials = Depends(securit
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, filename, document_type, verified, created_at, verified_at
+            SELECT id, filename, document_type, verified, storage_status, created_at, verified_at
             FROM uploads ORDER BY created_at DESC
         """)
         rows = cursor.fetchall()
@@ -737,8 +771,9 @@ async def list_files(credentials: HTTPAuthorizationCredentials = Depends(securit
                 "filename": row[1],
                 "document_type": row[2],
                 "verified": bool(row[3]),
-                "created_at": row[4],
-                "verified_at": row[5]
+                "storage_status": row[4],
+                "created_at": row[5],
+                "verified_at": row[6]
             })
         
         return {"files": files}
@@ -767,11 +802,8 @@ async def delete_file(
         
         blob_name, container = row
         
-        # Delete from Azure
-        try:
-            storage.delete_blob(blob_name, container)
-        except Exception as e:
-            print(f"Azure delete error: {e}")
+        # Delete from Azure if the blob still exists.
+        _delete_blob_if_present(storage, blob_name, container)
         
         # Delete from database
         cursor.execute("DELETE FROM uploads WHERE id = ?", (file_id,))

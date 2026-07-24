@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import api, { API_TOKEN } from '../utils/api'
+import api, { API_BASE_URL, API_TOKEN } from '../utils/api'
 import './DashboardPage.css'
 
 function DashboardPage() {
@@ -14,12 +14,12 @@ function DashboardPage() {
   const dropZoneRef = useRef(null)
   const progressIntervalRef = useRef(null)
 
-  const DEMO_UPLOAD = (import.meta.env.VITE_DEMO_UPLOAD ?? 'true') === 'true'
+  const DEMO_UPLOAD = (import.meta.env.VITE_DEMO_UPLOAD ?? 'false') === 'true'
 
   const displayDocType = (rawType) => {
     if (!rawType) return 'Aadhaar Card'
     const normalized = String(rawType).trim().toLowerCase()
-    if (normalized.startsWith('pan')) return 'Aadhaar Card'
+    if (normalized.startsWith('pan')) return 'PAN Card'
     return rawType
   }
 
@@ -284,7 +284,7 @@ function DashboardPage() {
       return
     }
 
-    window.open(`${import.meta.env.VITE_API_URL}/api/generate-qr/${fileId}?token=${API_TOKEN}`, '_blank')
+    window.open(`${API_BASE_URL}/api/generate-qr/${fileId}?token=${API_TOKEN}`, '_blank')
   }
 
   const getFileIcon = (filename) => {
@@ -427,24 +427,36 @@ function DashboardPage() {
                   {uploadResults.map((result, index) => (
                     result.success && (
                       <div key={index} className="result-mini-card">
-                        <div className="qr-mini">
-                          <QRCodeSVG
-                            id={`qr-${result.file_id}`}
-                            value={JSON.stringify(result.qr_payload || { id: result.file_id })}
-                            size={120}
-                            level="H"
-                          />
-                        </div>
-                        <div className="result-mini-info">
-                          <p className="result-mini-name">{result.metadata?.file_name || 'Document'}</p>
-                          <p className="result-mini-doc-type">Document type: {displayDocType(result.metadata?.document_type)}</p>
-                          <button
-                            className="download-qr-btn"
-                            onClick={() => downloadQR(result.file_id)}
-                          >
-                            Download QR
-                          </button>
-                        </div>
+                        <>
+                          {((DEMO_UPLOAD && result.qr_payload) || result.storage_status === 'retained') ? (
+                            <div className="qr-mini">
+                              <QRCodeSVG
+                                id={`qr-${result.file_id}`}
+                                value={JSON.stringify(result.qr_payload || { id: result.file_id })}
+                                size={120}
+                                level="H"
+                              />
+                            </div>
+                          ) : (
+                            <div className="qr-mini qr-mini-empty">
+                              <p>Processed</p>
+                            </div>
+                          )}
+                          <div className="result-mini-info">
+                            <p className="result-mini-name">{result.metadata?.file_name || 'Document'}</p>
+                            <p className="result-mini-doc-type">Document type: {displayDocType(result.metadata?.document_type)}</p>
+                            {((DEMO_UPLOAD && result.qr_payload) || result.storage_status === 'retained') ? (
+                              <button
+                                className="download-qr-btn"
+                                onClick={() => downloadQR(result.file_id)}
+                              >
+                                Download QR
+                              </button>
+                            ) : (
+                              <p className="result-mini-note">Temporary blob storage cleaned up after processing.</p>
+                            )}
+                          </div>
+                        </>
                       </div>
                     )
                   ))}

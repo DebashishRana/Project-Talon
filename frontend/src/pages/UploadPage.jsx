@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import api, { API_TOKEN } from '../utils/api'
+import api, { API_BASE_URL, API_TOKEN } from '../utils/api'
 import './UploadPage.css'
 
 function UploadPage() {
@@ -15,12 +15,12 @@ function UploadPage() {
   const detectTimeoutRef = useRef(null)
   const progressIntervalRef = useRef(null)
 
-  const DEMO_UPLOAD = (import.meta.env.VITE_DEMO_UPLOAD ?? 'true') === 'true'
+  const DEMO_UPLOAD = (import.meta.env.VITE_DEMO_UPLOAD ?? 'false') === 'true'
 
   const displayDocType = (rawType) => {
     if (!rawType) return 'Aadhaar Card'
     const normalized = String(rawType).trim().toLowerCase()
-    if (normalized.startsWith('pan')) return 'Aadhaar Card'
+    if (normalized.startsWith('pan')) return 'PAN Card'
     return rawType
   }
 
@@ -282,7 +282,7 @@ function UploadPage() {
       return
     }
 
-    window.open(`/api/generate-qr/${fileId}?token=${API_TOKEN}`, '_blank')
+    window.open(`${API_BASE_URL}/api/generate-qr/${fileId}?token=${API_TOKEN}`, '_blank')
   }
 
   return (
@@ -381,11 +381,10 @@ function UploadPage() {
 
                 const docTypeLabel = displayDocType(result.metadata?.document_type)
 
-                const qrPayload = result.qr_payload || {
-                  id: result.file_id,
-                  dl: result.share_link,
-                  timestamp: new Date().toISOString()
-                }
+                const qrPayload = result.qr_payload || null
+                const isBlobRetained = result.storage_status === 'retained'
+                const canRenderQr = DEMO_UPLOAD || isBlobRetained
+                const isBlobCleaned = result.storage_status === 'deleted' || result.storage_status === 'cleaned_up'
 
                 return (
                   <div key={index} className="result-card success">
@@ -420,37 +419,59 @@ function UploadPage() {
                           </div>
                         )}
 
-                        <div className="qr-section">
-                          <div className="qr-code-container">
-                            <QRCodeSVG
-                              id={`qr-${result.file_id}`}
-                              value={JSON.stringify(qrPayload)}
-                              size={260}
-                              level="H"
-                              includeMargin={true}
-                            />
+                        {qrPayload && canRenderQr ? (
+                          <div className="qr-section">
+                            <div className="qr-code-container">
+                              <QRCodeSVG
+                                id={`qr-${result.file_id}`}
+                                value={JSON.stringify(qrPayload)}
+                                size={260}
+                                level="H"
+                                includeMargin={true}
+                              />
+                            </div>
+                            <div className="qr-actions">
+                              <button
+                                className="action-button"
+                                onClick={() => downloadQR(result.file_id)}
+                              >
+                                Download QR
+                              </button>
+                              {result.share_link && (
+                                <button
+                                  className="action-button secondary"
+                                  onClick={() => navigator.clipboard.writeText(result.share_link)}
+                                >
+                                  Copy Link
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <div className="qr-actions">
-                            <button
-                              className="action-button"
-                              onClick={() => downloadQR(result.file_id)}
-                            >
-                              Download QR
-                            </button>
-                            <button
-                              className="action-button secondary"
-                              onClick={() => navigator.clipboard.writeText(result.share_link)}
-                            >
-                              Copy Link
-                            </button>
+                        ) : (
+                          <div className="metadata-preview">
+                            <p>
+                              Temporary blob storage was cleaned up after processing.
+                            </p>
+                            {isBlobCleaned && (
+                              <p>
+                                No persistent QR or share link is available for this upload.
+                              </p>
+                            )}
                           </div>
-                        </div>
+                        )}
 
                         <div className="result-footer">
                           <p className="file-id">ID: {result.file_id}</p>
-                          <p className="expiry">
-                            Expires: {new Date(result.expiry_time).toLocaleString()}
-                          </p>
+                          {result.expiry_time && (
+                            <p className="expiry">
+                              Expires: {new Date(result.expiry_time).toLocaleString()}
+                            </p>
+                          )}
+                          {isBlobRetained && result.retention_until && (
+                            <p className="expiry">
+                              Retention ends: {new Date(result.retention_until).toLocaleString()}
+                            </p>
+                          )}
                         </div>
                       </>
                     )}

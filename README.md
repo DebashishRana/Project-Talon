@@ -1,30 +1,30 @@
-# VeriQuickX - Document Verification System
+﻿# VeriQuickX - Document Verification System
 
-A comprehensive full-stack application for document upload, QR code generation, and verification. Supports Aadhaar and PAN card processing with advanced validation algorithms.
+A comprehensive full-stack application for document upload, temporary Azure Blob staging, document processing, and verification. Supports Aadhaar and PAN card processing with advanced validation algorithms.
 
-## 🚀 Features
+## ðŸš€ Features
 
 - **Document Upload**: Upload PDF or image documents (Aadhaar, PAN, or any ID)
-- **Azure Blob Storage**: Secure cloud storage with SAS-based temporary access
-- **QR Code Generation**: Generate QR codes with short-lived access tokens (30-60 seconds)
-- **QR Scanner**: Scan QR codes using webcam to access documents
+- **Azure Blob Storage**: Temporary staging only with SAS-based upload access
+- **QR Code Support**: Demo-mode or retention-enabled QR flows only
+- **QR Scanner**: Scan QR codes when a retained document flow is enabled
 - **Metadata Extraction**: Automatic extraction of name, DOB, PAN/Aadhaar numbers
 - **Document Validation**: PAN checksum validation, Aadhaar QR validation
-- **Verification Lifecycle**: Documents move from incoming → verified after validation
+- **Verification Lifecycle**: Documents move from incoming staging to processed results, then Blob is cleaned up by default
 - **Admin Panel**: Manage files, view scan logs, delete documents
 - **Multi-file Upload**: Upload multiple documents at once
 - **Direct Upload**: Frontend uploads directly to Azure (no backend file streaming)
 
-## 🔒 Why SAS Instead of Public Links?
+## ðŸ”’ Why SAS Instead of Public Links?
 
 **Security by Design:**
-- **No Public Access**: Containers are private; only SAS tokens grant temporary access
-- **Time-Limited**: QR codes contain 30-60 second SAS URLs, not permanent links
+- **No Public Access**: Containers are private; only SAS tokens grant temporary upload access
+- **Time-Limited**: Uploaded blobs are cleaned up after processing unless retention is explicitly enabled
 - **Credential Isolation**: Azure credentials never leave the backend
-- **Immediate Expiry**: Documents can be deleted after first access
-- **No Metadata Leakage**: QR codes contain only access tokens, not document data
+- **No Permanent Storage Assumption**: Production uploads are not treated as long-lived documents in Blob
+- **No Metadata Leakage**: QR codes are not used as a permanent document-sharing mechanism
 
-## 📋 Prerequisites
+## ðŸ“‹ Prerequisites
 
 - Python 3.10+
 - Node.js 18+
@@ -51,7 +51,7 @@ brew install tesseract
 sudo apt-get install tesseract-ocr
 ```
 
-## 🛠️ Installation
+## ðŸ› ï¸ Installation
 
 ### 1. Clone the Repository
 
@@ -79,7 +79,7 @@ cp .env.example .env
 # AZURE_STORAGE_ACCOUNT_NAME=your_account_name
 # AZURE_STORAGE_ACCOUNT_KEY=your_account_key
 # AZURE_STORAGE_CONTAINER_INCOMING=incoming-docs
-# AZURE_STORAGE_CONTAINER_VERIFIED=verified-docs
+# AZURE_STORAGE_CONTAINER_VERIFIED=verified-docs  # Optional, only if you later enable retention
 # API_TOKEN=your_secret_token_here
 ```
 
@@ -108,7 +108,7 @@ If you don't have sound files, the app will work without them (errors will be lo
 
 Place your logo file as `frontend/public/logo.png` (or update the path in `Navbar.jsx`).
 
-## 🚀 Running the Application
+## ðŸš€ Running the Application
 
 ### Start Backend
 
@@ -128,48 +128,51 @@ npm run dev
 
 The frontend will be available at `http://localhost:3000`
 
-## 📁 Project Structure
+## ðŸ“ Project Structure
 
 ```
 Veriquick Cloud/
-├── backend/
-│   ├── main.py                 # FastAPI application
-│   ├── config.py               # Configuration settings
-│   ├── document_processor.py   # Document processing & metadata extraction
-│   ├── validators.py           # Document validation functions
-│   ├── requirements.txt        # Python dependencies
-│   ├── .env.example            # Environment variables template
-│   └── veriquickx.db           # SQLite database (created automatically)
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/         # React components
-│   │   │   └── Navbar.jsx
-│   │   ├── pages/              # Page components
-│   │   │   ├── UploadPage.jsx
-│   │   │   ├── ScannerPage.jsx
-│   │   │   ├── AdminPage.jsx
-│   │   │   └── AboutPage.jsx
-│   │   ├── App.jsx             # Main app component
-│   │   ├── main.jsx            # Entry point
-│   │   └── index.css           # Global styles
-│   ├── public/
-│   │   ├── sounds/             # Sound effects
-│   │   └── logo.png            # Logo file
-│   ├── package.json
-│   └── vite.config.js
-│
-└── README.md
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ main.py                 # FastAPI application
+â”‚   â”œâ”€â”€ config.py               # Configuration settings
+â”‚   â”œâ”€â”€ document_processor.py   # Document processing & metadata extraction
+â”‚   â”œâ”€â”€ validators.py           # Document validation functions
+â”‚   â”œâ”€â”€ requirements.txt        # Python dependencies
+â”‚   â”œâ”€â”€ .env.example            # Environment variables template
+â”‚   â””â”€â”€ veriquickx.db           # SQLite database (created automatically)
+â”‚
+â”œâ”€â”€ frontend/
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ components/         # React components
+â”‚   â”‚   â”‚   â””â”€â”€ Navbar.jsx
+â”‚   â”‚   â”œâ”€â”€ pages/              # Page components
+â”‚   â”‚   â”‚   â”œâ”€â”€ UploadPage.jsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ ScannerPage.jsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ AdminPage.jsx
+â”‚   â”‚   â”‚   â””â”€â”€ AboutPage.jsx
+â”‚   â”‚   â”œâ”€â”€ App.jsx             # Main app component
+â”‚   â”‚   â”œâ”€â”€ main.jsx            # Entry point
+â”‚   â”‚   â””â”€â”€ index.css           # Global styles
+â”‚   â”œâ”€â”€ public/
+â”‚   â”‚   â”œâ”€â”€ sounds/             # Sound effects
+â”‚   â”‚   â””â”€â”€ logo.png            # Logo file
+â”‚   â”œâ”€â”€ package.json
+â”‚   â””â”€â”€ vite.config.js
+â”‚
+â””â”€â”€ README.md
 ```
 
-## 🔧 Configuration
+## ðŸ”§ Configuration
 
 ### Backend Configuration
 
 Edit `backend/.env`:
 
 ```env
-DROPBOX_ACCESS_TOKEN=your_dropbox_token
+AZURE_STORAGE_ACCOUNT_NAME=your_account_name
+AZURE_STORAGE_ACCOUNT_KEY=your_account_key
+AZURE_STORAGE_CONTAINER_INCOMING=incoming-docs
+AZURE_STORAGE_CONTAINER_VERIFIED=verified-docs
 API_TOKEN=your_secret_api_token
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
@@ -181,6 +184,7 @@ Set environment variables for the frontend (recommended) in `frontend/.env.local
 ```env
 VITE_API_URL=http://localhost:8000
 VITE_API_TOKEN=your_secret_token_here
+VITE_DEMO_UPLOAD=false
 ```
 
 These must match the backend `API_TOKEN` (see `backend/.env`).
@@ -193,14 +197,14 @@ Default admin password is `admin123`. Change it in `frontend/src/pages/AdminPage
 const ADMIN_PASSWORD = 'your_secure_password'
 ```
 
-## 📡 API Endpoints
+## ðŸ“¡ API Endpoints
 
 ### Public Endpoints
 
 - `GET /` - API information
 - `POST /api/upload` - Upload single document
 - `POST /api/upload-multiple` - Upload multiple documents
-- `GET /api/generate-qr/{file_id}` - Generate QR code image
+- `GET /api/generate-qr/{file_id}` - Generate QR code image when retained storage is enabled
 - `POST /api/scan-qr` - Process scanned QR code
 - `GET /api/validate-document` - Validate document metadata
 
@@ -215,21 +219,24 @@ All endpoints require Bearer token authentication:
 Authorization: Bearer your_api_token
 ```
 
-## 🔐 Security Notes
+## ðŸ” Security Notes
 
 1. **Change Default Tokens**: Update `API_TOKEN` in production
 2. **Change Admin Password**: Update `ADMIN_PASSWORD` in `AdminPage.jsx`
 3. **Use HTTPS**: Deploy with HTTPS in production
 4. **Environment Variables**: Never commit `.env` files
-5. **Dropbox Token**: Keep your Dropbox token secure
+5. **Azure Storage Credentials**: Keep your Azure storage credentials secure
 
-## 🚢 Deployment
+## ðŸš¢ Deployment
 
 ### Backend Deployment (Render/Railway)
 
 1. Create a new service
 2. Set environment variables:
-   - `DROPBOX_ACCESS_TOKEN`
+   - `AZURE_STORAGE_ACCOUNT_NAME`
+   - `AZURE_STORAGE_ACCOUNT_KEY`
+   - `AZURE_STORAGE_CONTAINER_INCOMING`
+   - `AZURE_STORAGE_CONTAINER_VERIFIED` (optional)
    - `API_TOKEN`
    - `ALLOWED_ORIGINS` (your frontend URL)
 3. Deploy from `backend/` directory
@@ -249,21 +256,21 @@ Authorization: Bearer your_api_token
 
 If you prefer Streamlit, you can convert the React frontend to Streamlit, but the current implementation uses React for better UX.
 
-## 🧪 Testing
+## ðŸ§ª Testing
 
 ### Test Document Upload
 
 1. Go to Upload page
 2. Select a PDF or image file
 3. Click Upload
-4. Verify QR code is generated
+4. Verify the document is processed and Blob cleanup completes
 
 ### Test QR Scanner
 
 1. Go to Scan QR page
 2. Click "Start Scanning"
 3. Point camera at a QR code
-4. Verify document is retrieved and displayed
+4. Verify document retrieval only works when a retained flow is enabled
 
 ### Test Admin Panel
 
@@ -272,7 +279,7 @@ If you prefer Streamlit, you can convert the React frontend to Streamlit, but th
 3. View files and logs
 4. Test file deletion
 
-## 🐛 Troubleshooting
+## ðŸ› Troubleshooting
 
 ### Camera Not Working
 
@@ -280,11 +287,11 @@ If you prefer Streamlit, you can convert the React frontend to Streamlit, but th
 - Try different browsers (Chrome recommended)
 - Check HTTPS requirement for camera access
 
-### Dropbox Upload Fails
+### Azure Blob Upload Fails
 
-- Verify `DROPBOX_ACCESS_TOKEN` is correct
-- Check token hasn't expired
-- Ensure Dropbox app has proper permissions
+- Verify Azure account name and key are correct
+- Check the storage account is reachable
+- Ensure the incoming container exists and CORS allows the frontend
 
 ### OCR Not Working
 
@@ -298,21 +305,21 @@ If you prefer Streamlit, you can convert the React frontend to Streamlit, but th
 - Hold QR code steady
 - Try increasing scan interval in `ScannerPage.jsx`
 
-## 📝 License
+## ðŸ“ License
 
-© 2025 VeriQuickX. All rights reserved.
+Â© 2025 VeriQuickX. All rights reserved.
 Proprietary software - Permission required to edit and modify.
 
-## 👤 Contact
+## ðŸ‘¤ Contact
 
 - GitHub: [@DebashishRana](https://www.github.com/DebashishRana)
 - Email: dimareznokov@gmail.com
 - Phone: +91 9304211754
 - LinkedIn: [devarana](https://www.linkedin.com/in/devarana)
 
-## 🙏 Acknowledgments
+## ðŸ™ Acknowledgments
 
-- Dropbox API for cloud storage
+- Azure Blob Storage for temporary staging
 - FastAPI for backend framework
 - React for frontend framework
 - jsQR for QR code scanning

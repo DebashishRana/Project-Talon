@@ -33,7 +33,10 @@
    - **Start Command:** `cd backend && python main.py`
    - **Environment:** Python 3
 4. Add Environment Variables:
-   - `DROPBOX_ACCESS_TOKEN`: Your Dropbox token
+   - `AZURE_STORAGE_ACCOUNT_NAME`: Your Azure storage account name
+   - `AZURE_STORAGE_ACCOUNT_KEY`: Your Azure storage account key
+   - `AZURE_STORAGE_CONTAINER_INCOMING`: Incoming staging container name
+   - `AZURE_STORAGE_CONTAINER_VERIFIED`: Optional retained container name
    - `API_TOKEN`: Your secret API token
    - `ALLOWED_ORIGINS`: Your frontend URL (e.g., `https://your-app.onrender.com`)
 
@@ -47,6 +50,7 @@
 4. Add Environment Variables:
    - `VITE_API_URL`: Your backend URL (e.g., `https://your-backend.onrender.com`)
    - `VITE_API_TOKEN`: Your API token (must match backend)
+   - `VITE_DEMO_UPLOAD`: Set to `false` for production
 
 ### Option 2: Railway
 
@@ -134,8 +138,11 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
-    environment:
-      - DROPBOX_ACCESS_TOKEN=${DROPBOX_ACCESS_TOKEN}
+  environment:
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
+      - AZURE_STORAGE_ACCOUNT_KEY=${AZURE_STORAGE_ACCOUNT_KEY}
+      - AZURE_STORAGE_CONTAINER_INCOMING=${AZURE_STORAGE_CONTAINER_INCOMING}
+      - AZURE_STORAGE_CONTAINER_VERIFIED=${AZURE_STORAGE_CONTAINER_VERIFIED}
       - API_TOKEN=${API_TOKEN}
       - ALLOWED_ORIGINS=http://localhost:3000
     volumes:
@@ -157,10 +164,13 @@ Run: `docker-compose up -d`
 
 ### Backend (.env)
 ```env
-DROPBOX_ACCESS_TOKEN=your_dropbox_token
+AZURE_STORAGE_ACCOUNT_NAME=your_account_name
+AZURE_STORAGE_ACCOUNT_KEY=your_account_key
+AZURE_STORAGE_CONTAINER_INCOMING=incoming-docs
+AZURE_STORAGE_CONTAINER_VERIFIED=verified-docs
 API_TOKEN=your_secret_token_here
 ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
-QR_EXPIRY_HOURS=24
+VITE_DEMO_UPLOAD=false
 MAX_FILE_SIZE_MB=20
 ```
 
@@ -176,9 +186,10 @@ VITE_API_TOKEN=your_secret_token_here
 - [ ] Change default admin password
 - [ ] Update API tokens
 - [ ] Test file upload
-- [ ] Test QR scanning
+- [ ] Test blob cleanup after processing
+- [ ] Test QR scanning only if retention is enabled
 - [ ] Test admin panel
-- [ ] Verify Dropbox integration
+- [ ] Verify Azure Blob connectivity and CORS
 - [ ] Check error logging
 - [ ] Set up monitoring (optional)
 - [ ] Configure backup for database
@@ -190,10 +201,10 @@ VITE_API_TOKEN=your_secret_token_here
 - Check for trailing slashes
 - Verify protocol (http vs https)
 
-### Dropbox Errors
-- Verify token hasn't expired
-- Check app permissions in Dropbox
-- Ensure token has file read/write access
+### Azure Blob Errors
+- Verify the Azure storage account name and key are correct
+- Check the incoming container name and network rules
+- Ensure the storage account allows the frontend origin through CORS
 
 ### Build Failures
 - Check Node.js version (18+)

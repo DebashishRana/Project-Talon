@@ -35,7 +35,7 @@ class AzureBlobStorage:
         self._ensure_containers()
     
     def _ensure_containers(self):
-        """Create containers if they don't exist (private access)"""
+        """Create the staging and optional retained containers if they don't exist."""
         for container_name in [
             settings.AZURE_STORAGE_CONTAINER_INCOMING,
             settings.AZURE_STORAGE_CONTAINER_VERIFIED
@@ -79,11 +79,11 @@ class AzureBlobStorage:
     
     def generate_read_sas_url(self, blob_name: str, container: str = None) -> str:
         """
-        Generate read-only SAS URL for accessing verified documents.
+        Generate read-only SAS URL for accessing retained documents.
         
         Args:
             blob_name: Name of the blob
-            container: Container name (defaults to verified-docs)
+            container: Container name (defaults to the retained-docs container)
         
         Returns:
             Full SAS URL with read-only permissions, short expiry (30-60 seconds)

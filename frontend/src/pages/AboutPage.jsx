@@ -18,8 +18,8 @@ function AboutPage() {
             <p>
               VeriQuickX is a full-stack application designed to streamline document
               verification processes. It allows users to upload identity documents
-              (Aadhaar, PAN, and other IDs), generate secure QR codes for easy access,
-              and verify document authenticity through advanced validation algorithms.
+              (Aadhaar, PAN, and other IDs), process them through a temporary storage
+              pipeline, and verify document authenticity through advanced validation algorithms.
             </p>
           </section>
 
@@ -37,24 +37,24 @@ function AboutPage() {
               <div className="feature-card">
                 <h3>🔐 Secure Storage</h3>
                 <p>
-                  Documents are securely stored in Dropbox with configurable expiry
-                  times. Direct download links are generated for easy access.
+                  Documents are staged temporarily in Azure Blob Storage and cleaned up
+                  after processing unless a retention flow is explicitly enabled.
                 </p>
               </div>
 
               <div className="feature-card">
                 <h3>📱 QR Code Generation</h3>
                 <p>
-                  Generate unique QR codes for each document with embedded metadata.
-                  QR codes can be downloaded and shared for easy access.
+                  Generate QR codes only when a retained flow is enabled. Demo data can
+                  still render QR previews for local testing.
                 </p>
               </div>
 
               <div className="feature-card">
                 <h3>📷 QR Scanner</h3>
                 <p>
-                  Scan QR codes using your device's camera. Automatic document
-                  retrieval and metadata display with validation results.
+                  Scan QR codes using your device's camera when a retained flow exists.
+                  Automatic document retrieval and metadata display with validation results.
                 </p>
               </div>
 
@@ -97,7 +97,7 @@ function AboutPage() {
                   <li>FastAPI</li>
                   <li>Python 3.10+</li>
                   <li>SQLite</li>
-                  <li>Dropbox SDK</li>
+                  <li>Azure Blob Storage SDK</li>
                   <li>PyPDF2 & pdfplumber</li>
                   <li>OpenCV & Pyzbar</li>
                   <li>Pillow & Tesseract OCR</li>
@@ -136,9 +136,9 @@ function AboutPage() {
             <ul className="security-list">
               <li>Token-based API authentication</li>
               <li>Password-protected admin panel</li>
-              <li>Expiring download links (configurable)</li>
-              <li>Secure file storage in Dropbox</li>
-              <li>Encrypted QR payloads</li>
+              <li>Optional retained access links (configurable)</li>
+              <li>Temporary Blob staging with cleanup after processing</li>
+              <li>Encrypted QR payloads for retained flows only</li>
               <li>Comprehensive logging system</li>
             </ul>
           </section>
@@ -151,7 +151,7 @@ function AboutPage() {
 {`cd backend
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your Dropbox token
+# Edit .env with your Azure credentials
 python main.py`}
               </pre>
 
@@ -181,7 +181,7 @@ npm run dev`}
               </div>
               <div className="endpoint">
                 <code>GET /api/generate-qr/{'{file_id}'}</code>
-                <p>Generate QR code image for a file</p>
+                <p>Generate QR code image when retained storage is enabled</p>
               </div>
               <div className="endpoint">
                 <code>POST /api/scan-qr</code>
