@@ -1,154 +1,314 @@
-# Introduction
+# 1. Introduction
 
-The verification of identity and travel documents is a critical challenge in border-security and high-risk screening environments, where a document must be assessed not only for what type of document it appears to be, but also for whether the information it contains is consistent, whether its digital representation shows signs of manipulation, and whether the individual presenting it corresponds to the identity represented by the document. Conventional document-processing systems often focus on isolated tasks such as OCR, document classification, or face matching, which can leave significant gaps when these signals are considered independently. A forged or manipulated document may still be visually convincing and produce perfectly readable OCR, while a genuine passport may be presented by an unauthorized individual and therefore cannot be considered trustworthy solely because the document itself is authentic. Similarly, discrepancies between visible document information and machine-readable information may indicate an inconsistency, but such discrepancies can also result from OCR errors or poor image quality. Real-world document capture introduces further complications through blur, glare, uneven illumination, perspective distortion, rotation, compression, low resolution, damaged documents, and variations between document layouts and issuing countries. The problem becomes particularly challenging in an Indian border-security context because the system must operate across Indian and foreign passports, visas, national identity documents, driving licences, permits, and other identity-related documents while dealing with limited availability of publicly accessible, representative Indian datasets containing genuine and manipulated examples. Sophisticated document manipulation also creates a further challenge because alterations may be localized and visually subtle rather than producing an obviously fake document. Consequently, simply classifying an image as a passport or extracting its text is insufficient for reliable screening. The underlying problem is therefore to establish a more comprehensive mechanism for identifying document type, extracting and interpreting its information, validating machine-readable information where available, detecting potential manipulation, and determining whether the person presenting the document corresponds to the identity represented within it, while distinguishing genuine security concerns from ordinary image-quality and capture-related failures. DECTRA is designed around this broader problem of fragmented and incomplete identity-document verification, where the challenge is not merely to *read* an identity document, but to determine whether the available visual, textual, machine-readable, forensic, and biometric evidence is sufficiently consistent to warrant trust or further investigation.
+Identity and travel-document verification is a critical challenge in **border security and high-risk screening**, where simply identifying a document or reading its text is not enough. A reliable screening system must determine whether the document is genuine, whether its information is internally consistent, whether it shows signs of manipulation, and whether the person presenting it matches the identity represented by the document.
+
+Conventional solutions often handle these tasks independently through **document classification, OCR, or face matching**, creating gaps between different verification signals. A manipulated document may still produce accurate OCR, while a genuine document may be presented by the wrong individual. Similarly, apparent inconsistencies can result from genuine fraud or simply from blur, glare, poor lighting, perspective distortion, rotation, compression, or low-quality captures.
+
+The challenge is further increased by the diversity of **Indian and foreign passports, visas, identity documents, driving licences, permits, and other document formats**, along with the limited availability of representative Indian datasets containing real and manipulated documents. Modern forgeries can also involve subtle, localized modifications to photographs, text, signatures, stamps, or other document regions that are difficult to identify through visual inspection alone.
+
+**DECTRA** addresses this fragmented verification problem through a unified, multi-stage screening pipeline that combines **document classification, OCR and metadata extraction, MRZ validation, tampering detection, face verification, and cross-validation**. Rather than relying on a single prediction, DECTRA combines these signals to assess the overall consistency of the available evidence and identify documents that appear trustworthy, suspicious, or require further investigation.
+
+> **DECTRA is designed not merely to read an identity document, but to determine whether its visual, textual, machine-readable, forensic, and biometric evidence is sufficiently consistent for reliable screening.**
 
 ## 2. DECTRA System & Model Summary
 
-DECTRA is designed as a multi-stage document screening system for detecting suspicious, fraudulent, manipulated, or inconsistent identity documents. Instead of relying on a single machine-learning model, the system combines document classification, OCR-based information extraction, MRZ validation, document tampering analysis, facial verification, and cross-field consistency checks. The objective is to generate a unified evidence-based assessment of a document and highlight potential irregularities for further verification by an authorized officer.
+DECTRA is a multi-stage AI-assisted identity and document screening system designed to detect suspicious, manipulated, or inconsistent identity documents. Instead of relying on a single model, DECTRA combines document classification, OCR, MRZ validation, tampering detection, face verification, and cross-validation to generate an evidence-based screening result.
 
-The system follows a sequential pipeline in which the uploaded document is first identified, its information is extracted and structured, security-sensitive regions are analyzed, and multiple verification signals are combined before producing the final screening result.
+The complete pipeline processes a document progressively, beginning with document identification and information extraction, followed by authenticity and consistency analysis. The outputs from these modules are finally combined into a unified risk assessment that can assist an authorized operator in identifying documents requiring further verification.
 
 > **Figure 1 — DECTRA End-to-End System Architecture**  
-> *Add the complete architecture diagram here showing the flow from document upload → classification → OCR/MRZ → tampering detection → face verification → cross-validation → risk assessment.*
+> *Add complete system architecture diagram here.*
 
-### 2.1 Document Detection and Classification
+### 2.1 Document Detection & Classification
 
-The first stage of DECTRA determines what type of identity document has been provided. The classification layer identifies documents such as passports, Aadhaar cards, PAN cards, driving licences, visas, and other supported identity or travel documents.
+The classification module identifies the type of document provided to the system, such as passport, Aadhaar, PAN, driving licence, visa, or other supported identity documents. The detected document type determines the processing and validation rules applied by subsequent modules.
 
-This stage prevents the subsequent verification modules from processing the document using incorrect rules. For example, passport-specific processing can be activated when a passport is detected, while Aadhaar or PAN-specific fields can be handled using their respective layouts and validation requirements.
+> **Table 1 — Supported Document Types and Classification Status**
 
-The classification module is trained using authentic document samples together with visually diverse samples to improve robustness against differences in orientation, scale, background, image quality, and capture conditions.
+| Document Type | Country/Region | Classification | OCR | MRZ | Tampering | Face |
+|---|---|---|---|---|---|---|
+| Passport | - | - | - | - | - | - |
+| Aadhaar | - | - | - | - | - | - |
+| PAN | - | - | - | - | - | - |
+| Driving Licence | - | - | - | - | - | - |
+| Visa | - | - | - | - | - | - |
+| Other | - | - | - | - | - | - |
 
-The output of this stage is the detected document category together with the corresponding confidence score and processing configuration.
+### 2.2 OCR & Metadata Extraction
 
-> **Table 1 — Supported Document Types and Classification Status**  
-> *Add the document types, number of classes, model status, and confidence/results here.*
+DECTRA uses OCR to extract visible text from the document and converts the extracted information into structured metadata. Important fields such as name, document number, date of birth, nationality, issue date, and expiry date can then be used by subsequent verification stages.
 
----
+> **Figure 2 — OCR and Metadata Extraction Pipeline**
 
-### 2.2 OCR and Metadata Extraction
+> **Table 2 — OCR Fields and Extracted Metadata**
 
-After identifying the document type, DECTRA extracts the visible textual information from the document using OCR. The OCR layer converts the document image into machine-readable text and then organizes the extracted information into structured fields.
+| Field | Example | Source | Used For |
+|---|---|---|---|
+| Name | - | - | - |
+| Document Number | - | - | - |
+| Date of Birth | - | - | - |
+| Nationality | - | - | - |
+| Issue Date | - | - | - |
+| Expiry Date | - | - | - |
+| Address | - | - | - |
+| Other Document Fields | - | - | - |
 
-Depending on the document type, the system can extract information such as name, date of birth, document number, nationality, issue date, expiry date, address, and other relevant fields. The extracted information is retained as structured metadata rather than being treated only as raw OCR output.
+### 2.3 MRZ Extraction & Validation
 
-The OCR stage also provides the information required by later verification modules. Extracted fields can be compared with information from other regions of the same document, MRZ data, facial information, or authorized verification records where such access is available.
+For documents containing a Machine Readable Zone, DECTRA performs dedicated MRZ extraction and parsing. The extracted information is validated using MRZ check digits and compared with corresponding information obtained through OCR to identify inconsistencies.
 
-OCR is therefore used not only for text recognition but also as an information-extraction layer for the overall verification pipeline.
+> **Figure 3 — MRZ Extraction and Validation Flow**
 
-> **Figure 2 — OCR and Metadata Extraction Pipeline**  
-> *Add a diagram showing document image → OCR → text detection → field extraction → structured metadata.*
+> **Table 3 — MRZ Validation Checks**
 
-> **Table 2 — OCR Fields and Extracted Metadata**  
-> *Add examples of the fields extracted for each supported document type.*
-
----
-
-### 2.3 MRZ Extraction and Validation
-
-For documents containing a Machine Readable Zone (MRZ), DECTRA performs a dedicated MRZ processing step in addition to normal OCR. The MRZ contains standardized machine-readable information used in passports and other travel documents.
-
-The system detects and extracts the MRZ region, parses its individual fields, and validates the available check digits according to the applicable MRZ structure. The extracted MRZ information can then be compared against the corresponding information visible elsewhere on the document.
-
-This allows DECTRA to identify inconsistencies such as differences between the document number, date of birth, nationality, expiry date, or other machine-readable fields. MRZ validation therefore provides an additional independent verification signal rather than relying entirely on general OCR.
-
-> **Figure 3 — MRZ Extraction and Validation Flow**  
-> *Add the MRZ detection → parsing → check-digit validation → field comparison diagram.*
-
-> **Table 3 — MRZ Validation Checks**  
-> *Add the supported MRZ fields, validation rules, and verification results.*
-
----
+| Validation | Description | Result |
+|---|---|---|
+| MRZ Detection | - | - |
+| MRZ Parsing | - | - |
+| Document Number Check Digit | - | - |
+| Date of Birth Check Digit | - | - |
+| Expiry Date Check Digit | - | - |
+| OCR–MRZ Consistency | - | - |
 
 ### 2.4 Document Tampering Detection
 
-Document tampering detection is a major component of DECTRA. The objective is to identify visual or structural modifications that may indicate that an otherwise genuine document has been digitally manipulated.
+The tampering detection module analyzes documents for signs of digital or visual manipulation. The analysis covers modifications such as altered text, photographs, signatures, stamps/seals, and other document regions. Authentic and controlled tampered samples are used to develop and evaluate this component.
 
-The tampering analysis considers multiple categories of possible manipulation, including modifications to text, photographs, signatures, stamps or seals, and other important document regions. The system is designed to analyze both obvious alterations and more subtle modifications that may not be easily detected through visual inspection.
+> **Figure 4 — Document Tampering Categories**
 
-The project uses authentic document samples together with controlled tampered variations for model development and evaluation. These variations are created while preserving the overall document structure so that the model learns to distinguish genuine document characteristics from manipulation artifacts.
+> **Table 4 — Tampering Types and Dataset Distribution**
 
-Tampering detection is treated as an evidence-generating component rather than an absolute proof of fraud. Its result is combined with OCR, MRZ, facial, and other verification signals before the final decision is produced.
-
-> **Figure 4 — Document Tampering Categories**  
-> *Add a visual diagram showing the major tampering categories.*
-
-> **Table 4 — Tampering Types and Dataset Distribution**  
-> *Add the number of authentic and tampered samples for each category.*
-
----
+| Tampering Category | Affected Region | Description | Samples |
+|---|---|---|---:|
+| Text Tampering | - | - | - |
+| Face Tampering | - | - | - |
+| Signature Tampering | - | - | - |
+| Stamp/Seal Tampering | - | - | - |
+| Other Manipulation | - | - | - |
+| **Total** | - | - | **-** |
 
 ### 2.5 Face Verification
 
-For documents containing a photograph, DECTRA can perform facial comparison between the document photograph and a separately captured face image of the person being verified.
+For documents containing a facial photograph, DECTRA can compare the document face with a separately captured (live) face image. The resulting similarity information provides an additional identity-consistency signal and can help identify cases where the presented document and person do not correspond.
 
-The face verification stage first detects the face present in the input images and then compares the document face with the target face using a facial comparison model or service. The resulting similarity information is used as one of the verification signals in the overall system.
+> **Figure 5 — Face Verification Workflow**
 
-This module is intended to detect situations where the identity document may belong to one person while the person presenting it appears to be different. Face verification is therefore complementary to document tampering detection: a document can appear visually genuine while still being presented by a different individual.
+### 2.6 Cross-Validation
 
-Liveness detection is considered a separate security layer and should not be treated as equivalent to face similarity. A high similarity score alone does not establish that the captured image represents a live person.
+DECTRA compares information obtained from independent verification stages, including OCR fields, MRZ data, document regions, and facial information. This enables the system to identify inconsistencies that may not be visible through a single verification method.
 
-> **Figure 5 — Face Verification Workflow**  
-> *Add the document photograph → captured face → face detection → comparison → similarity/result flow.*
+> **Figure 6 — Cross-Validation Architecture**
 
----
+### 2.7 Decision & Risk Assessment
 
-### 2.6 Cross-Validation and Consistency Checking
+The final decision layer combines the outputs of the individual verification modules into an overall screening assessment. Classification confidence, OCR consistency, MRZ validation, tampering indicators, and face verification results can contribute to the final risk level.
 
-DECTRA combines information obtained from different parts of the document to identify inconsistencies. Rather than treating each extracted field independently, the system compares related information across OCR output, MRZ data, document regions, and facial information.
+## 3. Datasets & Data Preparation
 
-For example, the document number extracted through OCR can be compared with the corresponding MRZ value, while the date of birth and expiry date can also be checked for consistency. Similarly, the document photograph can be compared with the person presenting the document.
+DECTRA uses a combination of publicly available identity-document datasets and project-specific document samples for training and evaluation. The available datasets provide authentic document images, document-type variations, OCR/MRZ samples, and existing examples relevant to document analysis. Since publicly available datasets do not fully cover the required Indian document-fraud scenarios, additional samples are prepared specifically for the project.
 
-Where authorized external verification systems or official records are available, DECTRA can be extended to perform additional record-level verification. Such integrations depend on appropriate authorization, API availability, consent, and security requirements and are not assumed to be universally available.
+> **Table 7 — Dataset Overview**
 
-This cross-validation stage is important because fraudulent documents may not always contain obvious visual manipulation. Inconsistencies between independent information sources can provide an additional indication of risk.
+| Dataset Name | Document Type | Purpose | Source | Usage |
+|---|---|---|---|---|
+| - | - | - | - | - |
+| - | - | - | - | - |
+| - | - | - | - | - |
+| - | - | - | - | - |
+| - | - | - | - | - |
+| - | - | - | - | - |
 
-> **Figure 6 — Cross-Validation Architecture**  
-> *Add a diagram showing OCR, MRZ, face, document fields, and authorized records converging into consistency checks.*
+### 3.1 Dataset Collection and Preparation
 
----
+The collected data is organized according to document type and the specific DECTRA module for which it is required. Images are cleaned, resized, cropped, and standardized where necessary before being used for model development.
 
-### 2.7 Decision and Risk Assessment
+Authentic documents are retained as genuine reference samples. Where required, different orientations, lighting conditions, image quality, and other capture variations are introduced to improve robustness against real-world document images.
 
-The final stage combines the outputs produced by the individual verification modules. Instead of making the final decision using only one model, DECTRA evaluates multiple signals such as document classification confidence, OCR consistency, MRZ validation, tampering indicators, and face verification results.
+> **Table 8 — Dataset Distribution**
 
-The combined evidence can be used to categorize a document into outcomes such as **Verified/Low Risk, Suspicious, or High Risk**, depending on the configured decision policy. The system should also retain the individual evidence behind the result so that an authorized user can understand why a document was flagged.
+| Document Class | Authentic Samples | Tampered Samples | Training | Validation | Testing |
+|---|---:|---:|---:|---:|---:|
+| - | - | - | - | - | - |
+| - | - | - | - | - | - |
+| - | - | - | - | - | - |
+| - | - | - | - | - | - |
+| **Total** | **-** | **-** | **-** | **-** | **-** |
 
-The risk assessment is intended to support human decision-making rather than automatically replacing official identity verification procedures. A suspicious result indicates that additional verification may be required, while a low-risk result indicates that no significant anomaly was detected by the implemented checks.
+### 3.2 Tampered Document Dataset
 
-> **Figure 7 — Multi-Signal Decision Engine**  
-> *Add the diagram showing individual model outputs → evidence fusion → risk assessment → final screening result.*
+Tampered samples are **not taken directly from the online datasets**. Instead, authentic document images obtained from the available datasets and project-specific sources are used as the base, and controlled modifications are performed externally to create synthetic tampered samples.
 
----
+The modifications cover relevant fraud scenarios such as **text alteration, face replacement, signature manipulation, stamp/seal modification, and other document-region changes**. Both noticeable and subtle variations are created to provide different levels of manipulation difficulty.
 
-### 2.8 Supported Document Processing
+> **Figure 8 — Tampered Dataset Generation Pipeline**  
+> *Show: Authentic Document → External Tampering → Tampered Document → Annotation/Quality Check.*
 
-DECTRA is designed as a modular system so that additional document types can be introduced without redesigning the complete pipeline. Each document type can have its own classification rules, OCR field definitions, MRZ structure where applicable, tampering regions, and validation logic.
+> **Table 9 — Tampering Categories**
 
-The current implementation focuses on the document categories for which training data and processing modules have been developed. Additional document types can be incorporated as more representative datasets and validation rules become available.
+| Tampering Type | Affected Region | Description | Number of Samples |
+|---|---|---|---:|
+| Text Tampering | - | - | - |
+| Face Tampering | - | - | - |
+| Signature Tampering | - | - | - |
+| Stamp/Seal Tampering | - | - | - |
+| Other Manipulation | - | - | - |
+| **Total** | - | - | **-** |
 
-> **Table 5 — Document Capability Matrix**  
-> *Add document type vs. classification, OCR, MRZ, tampering detection, face verification, and validation support.*
+### 3.3 Preprocessing and Dataset Splitting
 
----
+Before training, the data is standardized according to the requirements of each model. Preprocessing may include resizing, normalization, cropping, orientation correction, and quality filtering.
 
-### 2.9 Model and Technology Stack
+The datasets are divided into training, validation, and test sets while keeping different modified versions of the same original document within the same split. This prevents data leakage and ensures that evaluation is performed on documents that the model has not effectively seen during training.
 
-DECTRA uses a modular AI architecture in which different technologies are responsible for different stages of the verification process. Computer vision and classification models are used for document identification and visual analysis, OCR systems are used for text extraction, dedicated processing is used for MRZ validation, and facial recognition technology is used for face comparison.
+> **Figure 9 — Dataset Splitting Strategy**  
+> *Show document-level grouping → train/validation/test split.*
 
-The system is exposed through a web-based interface that allows an authorized user to upload or capture a document, review extracted information, inspect verification results, and understand the evidence contributing to the final assessment.
+## 4. Evaluation Results
 
-The modular design allows individual components to be improved or replaced independently as better models, datasets, or verification services become available.
+DECTRA is evaluated independently across its major verification components using unseen test data. Each module is measured using task-specific metrics to assess its ability to correctly identify documents, extract information, detect manipulation, and verify identity.
 
-> **Table 6 — DECTRA Technology Stack**  
-> *Add the technologies/frameworks used for frontend, backend, AI/ML, OCR, MRZ processing, face verification, storage, and deployment.*
+### 4.1 Document Classification
 
----
+The document classification models are evaluated on their ability to correctly identify supported document types from unseen test images.
 
-### 2.10 Evidence-Driven Verification
+**Metrics:** Accuracy, Precision, Recall, and F1-Score.
 
-A central design principle of DECTRA is that document screening should not depend on a single prediction. A classification model may determine that an image resembles a passport, but this alone cannot establish that the passport is genuine. Similarly, OCR can extract text but cannot independently prove that the extracted information is authentic.
+> **Table 10 — Document Classification Results**
 
-DECTRA therefore combines multiple independent signals and presents the resulting evidence to the authorized operator. This approach is intended to reduce dependence on a single model and make suspicious cases easier to investigate.
+| Document Type | Precision | Recall | F1-Score |
+|---|---:|---:|---:|
+| Passport | — | — | — |
+| Aadhaar | — | — | — |
+| PAN | — | — | — |
+| Other Supported Documents | — | — | — |
+| **Overall** | **—** | **—** | **—** |
 
-The system is consequently positioned as an **AI-assisted screening and decision-support platform**, rather than an autonomous authority for determining legal identity or document authenticity.
+> **Figure 11 — Classification Confusion Matrix**
+
+### 4.2 OCR & MRZ Evaluation
+
+OCR is evaluated based on the accuracy of extracted text and important document fields. For documents containing an MRZ, extraction accuracy and validation performance are evaluated separately.
+
+> **Table 11 — OCR & MRZ Results**
+
+| Component | Metric | Result |
+|---|---|---:|
+| OCR | Character Error Rate (CER) | — |
+| OCR | Field Accuracy | — |
+| MRZ | Character/Field Accuracy | — |
+| MRZ | Check-Digit Validation Rate | — |
+| MRZ | OCR–MRZ Consistency | — |
+
+### 4.3 Tampering Detection
+
+The tampering detection model is evaluated using authentic and externally generated tampered document samples across the defined manipulation categories.
+
+**Metrics:** Precision, Recall, F1-Score, and ROC-AUC.
+
+> **Table 12 — Tampering Detection Results**
+
+| Metric | Result |
+|---|---:|
+| Precision | — |
+| Recall | — |
+| F1-Score | — |
+| ROC-AUC | — |
+
+> **Figure 12 — Tampering Detection Results**
+
+### 4.4 Face Verification
+
+Face verification is evaluated using matching and non-matching document/person pairs at the selected verification threshold.
+
+**Metrics:** FAR, FRR, and TAR at a defined FAR.
+
+> **Table 13 — Face Verification Results**
+
+| Metric | Result |
+|---|---:|
+| Verification Threshold | — |
+| FAR | — |
+| FRR | — |
+| TAR @ FAR | — |
+
+### 4.5 Evaluation Summary
+
+The final results will be updated as the individual models and complete DECTRA pipeline are finalized. Reported metrics will be based on the held-out test sets and will be accompanied by the corresponding dataset size and experimental conditions.
+
+> **Table 14 — DECTRA Evaluation Summary**
+
+| Module | Primary Metric | Result |
+|---|---|---:|
+| Document Classification | F1-Score | — |
+| OCR | Field Accuracy | — |
+| MRZ | Validation Rate | — |
+| Tampering Detection | F1-Score | — |
+| Face Verification | TAR @ FAR | — |
+
+## 5. Web Application & Usage
+
+DECTRA provides a web-based interface for performing identity-document screening through a single workflow. Users can upload a supported document and view its classification, extracted information, tampering analysis, MRZ validation, face verification, and overall screening result from the dashboard.
+
+> **Figure 13 — DECTRA Web Application Workflow**  
+> *Upload → AI Processing → Verification → Risk Assessment*
+
+### 5.1 Verification Dashboard
+
+The dashboard presents the results of the different verification modules in a structured view, allowing the user to review detected document information, inconsistencies, tampering indicators, and identity-verification results.
+
+> **Figure 14 — DECTRA Verification Dashboard**  
+> *Add application screenshot here.*
+
+### 5.2 Screening Result
+
+DECTRA combines the available verification signals and presents an overall assessment indicating whether the document appears consistent or requires further investigation. The system is intended to support authorized personnel rather than replace official verification procedures.
+
+## 6. System Architecture & Deployment
+
+DECTRA follows a modular architecture in which the web interface, backend services, AI models, document-processing modules, and verification services operate as separate components. This structure allows individual models and services to be updated without redesigning the complete system.
+
+> **Figure 15 — DECTRA System Architecture**  
+> *Show frontend → backend/API → AI/verification modules → storage/external services.*
+
+### 6.1 Application Architecture
+
+The frontend provides the user interface for document submission and result visualization. The backend manages requests, coordinates the required AI modules, processes verification results, and returns the final assessment to the dashboard.
+
+### 6.2 Deployment
+
+DECTRA can be deployed as a web application with the AI processing and sensitive credentials maintained on the server side. The modular design supports local or cloud-based deployment depending on operational requirements and available computing resources.
+
+> **Figure 16 — DECTRA Deployment Architecture**  
+> *Show client → server/backend → AI services → database/storage, where applicable.*
+
+## 7. Security & Limitations
+
+DECTRA is designed to process sensitive identity and biometric information. The system should therefore use secure communication, protected backend credentials, controlled access, and appropriate data-retention practices. Sensitive documents and personal information should not be exposed through logs or unauthorized interfaces.
+
+DECTRA is an AI-assisted screening system and does not independently establish legal identity or guarantee document authenticity. Model performance can be affected by image quality, unseen document formats, new forgery techniques, and limited availability of representative real-world fraudulent data. Results should therefore be treated as decision-support evidence and verified through authorized procedures when required.
+
+> **Security Considerations**
+> - Secure document transmission and storage
+> - Controlled access to sensitive results
+> - Minimal retention of uploaded documents
+> - No sensitive information in application logs
+
+## 8. Future Scope
+
+- Expansion to additional Indian and foreign identity documents.
+- Improved detection of advanced and previously unseen forgery techniques.
+- Integration with authorized identity/document verification services.
+- Liveness detection for stronger biometric verification.
+- Larger real-world datasets for continuous evaluation and improvement.
+
+## 9. License
+
+License information will be added upon final release.
+
+## 10. Contact
+
+For questions, collaboration, or further information regarding DECTRA, please contact the project team.
+
+**Project:** DECTRA  
+**Event:** Smart India Hackathon 2026  
+**Problem Statement:** PS 26188 — AI-Based Fake Identity & Document Screening System
