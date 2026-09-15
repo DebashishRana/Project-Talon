@@ -1,6 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
-import Navbar from './components/Navbar'
+import UploadPage from './pages/UploadPage'
 import DashboardPage from './pages/DashboardPage'
 import ScannerPage from './pages/ScannerPage'
 import AdminPage from './pages/AdminPage'
@@ -14,7 +14,6 @@ function AppContent() {
 
   return (
     <div className="app">
-      {!isAuthPage && <Navbar />}
       <main className={`main-content ${isAuthPage ? 'auth-layout' : ''}`}>
         <Routes>
           <Route path="/" element={<AuthPage />} />
@@ -22,6 +21,7 @@ function AppContent() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/signup" element={<AuthPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/upload" element={<UploadPage />} />
           <Route path="/scan" element={<ScannerPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/about" element={<AboutPage />} />

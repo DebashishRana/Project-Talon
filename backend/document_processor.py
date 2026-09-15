@@ -9,7 +9,10 @@ import PyPDF2
 import pdfplumber
 from PIL import Image
 import pytesseract
-import pyzbar.pyzbar as pyzbar
+try:
+    import pyzbar.pyzbar as pyzbar
+except (ImportError, OSError):
+    pyzbar = None
 
 class DocumentProcessor:
     """Process documents and extract metadata"""
@@ -23,11 +26,23 @@ class DocumentProcessor:
         file_ext = filename.lower().split('.')[-1]
         
         if file_ext == 'pdf':
-            return self.process_pdf(file_content, filename)
+            metadata = self.process_pdf(file_content, filename)
         elif file_ext in ['jpg', 'jpeg', 'png']:
-            return self.process_image(file_content, filename)
+            metadata = self.process_image(file_content, filename)
         else:
             return {"document_type": "Unknown", "error": "Unsupported file type"}
+
+        # OCR is completed above before the image classifiers are invoked.
+        from model_inference import run_document_models
+
+        model_result = run_document_models(
+            file_content,
+            filename,
+            metadata.get("extracted_text", ""),
+        )
+        metadata["model_result"] = model_result
+        metadata["document_type"] = model_result["document_type"]
+        return metadata
     
     def process_pdf(self, content: bytes, filename: str) -> Dict:
         """Process PDF document"""
@@ -43,6 +58,8 @@ class DocumentProcessor:
                 text = ""
                 for page in pdf.pages:
                     text += page.extract_text() or ""
+
+                metadata["extracted_text"] = text
                 
                 # Check for QR codes in PDF
                 qr_data = self.extract_qr_from_pdf(content)
@@ -65,6 +82,8 @@ class DocumentProcessor:
                 text = ""
                 for page in pdf_reader.pages:
                     text += page.extract_text()
+
+                metadata["extracted_text"] = text
                 
                 if self.is_pan(text):
                     metadata.update(self.extract_pan_metadata(text))
@@ -96,6 +115,8 @@ class DocumentProcessor:
                 text = pytesseract.image_to_string(image, lang='eng')
             except:
                 text = ""
+
+            metadata["extracted_text"] = text
             
             # Detect document type
             if self.is_pan(text):
@@ -243,7 +264,12 @@ class DocumentProcessor:
         """Extract QR code from image"""
         try:
             import numpy as np
-            import cv2
+            try:
+                import cv2
+            except Exception as error:
+                # QR decoding is optional; OCR and model verification can continue.
+                print(f"[QR] OpenCV unavailable, skipping QR detection: {error}")
+                return None
             
             # Convert PIL to numpy array
             img_array = np.array(image)
@@ -252,10 +278,14 @@ class DocumentProcessor:
             else:
                 gray = img_array
             
-            # Decode QR
-            decoded = pyzbar.decode(gray)
+            # Prefer zbar when installed, then use OpenCV without requiring zbar.
+            if pyzbar is not None:
+                decoded = pyzbar.decode(gray)
+                if decoded:
+                    return decoded[0].data.decode('utf-8')
+            decoded, _, _ = cv2.QRCodeDetector().detectAndDecode(img_array)
             if decoded:
-                return decoded[0].data.decode('utf-8')
+                return decoded
         except:
             pass
         return None

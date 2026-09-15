@@ -1,5 +1,5 @@
 """
-VeriQuickX Backend API
+Talon Backend
 FastAPI server for document upload, QR generation, and validation
 Now using Azure Blob Storage with SAS-based secure access
 """
@@ -20,11 +20,13 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 import qrcode
 import io
+import time
 from pathlib import Path
 
 from document_processor import DocumentProcessor
 from validators import DocumentValidator
 from config import settings
+from dashboard_client import publish_verification_event
 from azure_storage import get_azure_storage
 
 
@@ -181,6 +183,67 @@ app.middleware_stack = None
 @app.get("/")
 async def root():
     return {"message": "VeriQuickX API", "version": "1.0.0"}
+
+
+@app.post("/api/process-documents")
+async def process_documents(
+    files: List[UploadFile] = File(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Process uploaded files locally: OCR first, then Aadhaar and passport models."""
+    if not _is_valid_token(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    results = []
+    for uploaded_file in files:
+        filename = uploaded_file.filename or "document"
+        try:
+            started_at = time.perf_counter()
+            extension = os.path.splitext(filename)[1].lower()
+            if extension not in settings.ALLOWED_EXTENSIONS:
+                raise ValueError(f"File type {extension} not allowed")
+
+            contents = await uploaded_file.read()
+            if len(contents) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+                raise ValueError(f"File size exceeds {settings.MAX_FILE_SIZE_MB}MB limit")
+
+            print(f"[Document] {filename}")
+            print("[OCR] Extracting text...")
+            metadata = doc_processor.process_document(contents, filename)
+            model_result = metadata.get("model_result", {})
+            print(f"[Models] Aadhaar: {model_result.get('models', {}).get('aadhaar', {}).get('status', 'error')}")
+            print(f"[Models] Passport: {model_result.get('models', {}).get('passport', {}).get('status', 'error')}")
+            print(
+                f"[Result] expected={model_result.get('expected_document', False)} "
+                f"type={model_result.get('document_type', 'Unknown')} "
+                f"confidence={model_result.get('confidence', 0.0):.4f}"
+            )
+
+            dashboard_result = publish_verification_event(
+                filename=filename,
+                document_type=model_result.get("document_type", "Unknown"),
+                confidence=float(model_result.get("confidence", 0.0)),
+                verified=bool(model_result.get("expected_document", False)),
+                model_result=model_result,
+                ocr_metadata=metadata,
+                processing_time_ms=(time.perf_counter() - started_at) * 1000,
+            )
+            print(f"[Dashboard] published={dashboard_result['published']} status={dashboard_result['status']}")
+
+            results.append({
+                "success": True,
+                "filename": filename,
+                "verified": model_result.get("expected_document", False),
+                "document_type": model_result.get("document_type", "Unknown"),
+                "metadata": metadata,
+                "model_result": model_result,
+                "dashboard": dashboard_result,
+            })
+        except Exception as error:
+            print(f"[Result] {filename}: failed - {error}")
+            results.append({"success": False, "filename": filename, "error": str(error)})
+
+    return {"results": results}
 
 @app.post("/api/upload")
 async def request_upload_sas(

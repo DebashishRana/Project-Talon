@@ -6,6 +6,13 @@ import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
+    # Dashboard receives verification events and powers the logs/statistics views.
+    DASHBOARD_URL: str = os.getenv("DASHBOARD_URL", "http://localhost:3000")
+    # The standalone mainapp must not call the separate Next.js dashboard by default.
+    DASHBOARD_SYNC_ENABLED: bool = os.getenv("DASHBOARD_SYNC_ENABLED", "false").lower() == "true"
+    SCANNER_TOKEN: str = os.getenv("SCANNER_TOKEN", "")
+    SCANNER_SIGNING_SECRET: str = os.getenv("SCANNER_SIGNING_SECRET", "")
+
     # Azure Blob Storage
     AZURE_STORAGE_ACCOUNT_NAME: str = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "")
     AZURE_STORAGE_ACCOUNT_KEY: str = os.getenv("AZURE_STORAGE_ACCOUNT_KEY", "")
