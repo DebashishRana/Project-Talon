@@ -36,9 +36,9 @@ function LoginPage() {
       {/* Left Side - Dark Section */}
       <div className="auth-left">
         <div className="auth-left-content">
-          <h1 className="auth-left-title">Proof first profit later</h1>
+          <h1 className="auth-left-title">Get started with Talon today.</h1>
           <p className="auth-left-subtitle">
-            Explore Dectra's core features for individuals and organizations.
+            Arsenal of verification tools for Ministry of Home affairs, law enforcement and national intellgence
           </p>
           <div className="auth-dropdown">
             <button 
@@ -88,15 +88,10 @@ function LoginPage() {
           {/* Main Form */}
           <div className="auth-form-container">
             <h1 className="auth-form-title">
-              {isLogin ? 'Sign in to Dectra' : 'Sign up for Dectra'}
+              {isLogin ? 'Welcome back' : 'Sign up for Dectra'}
             </h1>
 
-            {/* Separator */}
-            <div className="auth-separator">
-              <div className="separator-line"></div>
-              <span className="separator-text">or</span>
-              <div className="separator-line"></div>
-            </div>
+           
 
             {/* Form Fields */}
             <form onSubmit={handleSubmit} className="auth-form">

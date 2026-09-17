@@ -16,7 +16,7 @@ function Navbar() {
         </Link>
         <div className="navbar-menu">
           <Link to="/dashboard" className={`navbar-link ${isActive('/dashboard') ? 'active' : ''}`}>Dashboard</Link>
-          <Link to="/upload" className={`navbar-link upload-nav-link ${isActive('/upload') ? 'active' : ''}`}><span className="nav-plus">+</span> Upload document</Link>
+          <Link to="/upload" className={`navbar-link upload-nav-link ${isActive('/upload') ? 'active' : ''}`}><span className="nav-plus">+</span> New session</Link>
           <Link to="/scan" className={`navbar-link ${isActive('/scan') ? 'active' : ''}`}>Verification scanner</Link>
           <Link to="/about" className={`navbar-link ${isActive('/about') ? 'active' : ''}`}>About</Link>
         </div>

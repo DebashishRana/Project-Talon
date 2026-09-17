@@ -42,7 +42,7 @@ html, body {
 .auth-left {
   flex: 1;
   background-color: #1a1a1a;
-  background-image: url('/illusration.jpg');
+  background-image: url('/illustration.webp');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -319,42 +319,6 @@ html, body {
 }
 
 .auth-submit-button:active {
-  transform: scale(0.98);
-}
-
-/* Social Buttons */
-.social-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.social-button {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #374151;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  transition: background 0.2s, border-color 0.2s, transform 0.1s;
-  box-sizing: border-box;
-}
-
-.social-button:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-  transform: translateY(-1px);
-}
-
-.social-button:active {
   transform: scale(0.98);
 }
 

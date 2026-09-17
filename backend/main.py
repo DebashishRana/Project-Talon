@@ -38,7 +38,7 @@ def _is_valid_token(token: str) -> bool:
     # to avoid local dev mismatches.
     return token in {settings.API_TOKEN, LEGACY_DEV_TOKEN}
 
-app = FastAPI(title="VeriQuickX API", version="1.0.0")
+app = FastAPI(title="Talon API", version="0.08")
 
 # CORS middleware
 app.add_middleware(
