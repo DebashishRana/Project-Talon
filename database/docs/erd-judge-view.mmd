@@ -1,0 +1,77 @@
+erDiagram
+    SCREENING_CASES {
+        binary case_id PK
+    }
+    DOCUMENTS {
+        binary document_id PK
+        binary case_id FK
+    }
+    DOCUMENT_FILES {
+        binary document_file_id PK
+        binary document_id FK
+    }
+    CASE_MEDIA {
+        binary case_media_id PK
+        binary case_id FK
+    }
+    OCR_MRZ {
+        binary extraction_run_id PK
+        binary document_id FK
+    }
+    VALIDATION {
+        binary validation_run_id PK
+        binary document_id FK
+    }
+    FORENSICS {
+        binary forensic_run_id PK
+        binary document_id FK
+    }
+    BIOMETRICS {
+        binary biometric_check_id PK
+        binary case_id FK
+    }
+    RISK_ASSESSMENTS {
+        binary risk_assessment_id PK
+        binary case_id FK
+    }
+    OFFICER_DECISIONS {
+        binary workflow_decision_id PK
+        binary case_id FK
+    }
+    AUDIT_EVENTS {
+        binary audit_event_id PK
+        binary case_id FK
+    }
+    CASE_ACCESS_TOKENS {
+        binary case_access_token_id PK
+        binary case_id FK
+    }
+    LEGAL_HOLDS {
+        binary legal_hold_id PK
+        binary case_id FK
+    }
+    PURGE_JOBS {
+        binary purge_job_id PK
+    }
+    PURGE_JOB_ITEMS {
+        binary purge_job_item_id PK
+        binary purge_job_id FK
+    }
+
+    SCREENING_CASES ||--o{ DOCUMENTS : evidence_intake
+    SCREENING_CASES ||--o{ CASE_MEDIA : live_evidence
+    DOCUMENTS ||--o{ DOCUMENT_FILES : originals_and_crops
+    DOCUMENTS ||--o{ OCR_MRZ : OCR_and_MRZ
+    DOCUMENTS ||--o{ VALIDATION : rule_checks
+    DOCUMENTS ||--o{ FORENSICS : tamper_checks
+    SCREENING_CASES ||--o{ BIOMETRICS : face_and_liveness
+    DOCUMENT_FILES o|--o{ BIOMETRICS : portrait_evidence
+    CASE_MEDIA o|--o{ BIOMETRICS : live_evidence
+    SCREENING_CASES ||--o{ RISK_ASSESSMENTS : evidence_based_risk
+    SCREENING_CASES ||--o{ OFFICER_DECISIONS : officer_finalizes
+    SCREENING_CASES ||--o{ AUDIT_EVENTS : tamper_evident_audit
+    SCREENING_CASES ||--o{ CASE_ACCESS_TOKENS : short_lived_access
+    SCREENING_CASES ||--o{ LEGAL_HOLDS : blocks_purge
+    PURGE_JOBS ||--o{ PURGE_JOB_ITEMS : verified_deletion
+    DOCUMENT_FILES o|--o{ PURGE_JOB_ITEMS : retained_target
+    CASE_MEDIA o|--o{ PURGE_JOB_ITEMS : retained_target

@@ -1,0 +1,193 @@
+erDiagram
+    organizations {
+        binary organization_id PK
+    }
+    checkpoints {
+        binary checkpoint_id PK
+        binary organization_id FK
+    }
+    users {
+        binary user_id PK
+        binary organization_id FK
+    }
+    roles {
+        binary role_id PK
+    }
+    user_roles {
+        binary user_id PK,FK
+        binary role_id PK,FK
+        binary granted_by_user_id FK
+    }
+    registered_devices {
+        binary device_id PK
+        binary organization_id FK
+        binary assigned_user_id FK
+    }
+    screening_cases {
+        binary case_id PK
+        binary organization_id FK
+        binary checkpoint_id FK
+        binary intake_device_id FK
+        binary created_by_user_id FK
+    }
+    case_subjects {
+        binary subject_id PK
+        binary case_id FK
+    }
+    case_access_tokens {
+        binary case_access_token_id PK
+        binary case_id FK
+        binary issued_by_user_id FK
+        binary issued_to_device_id FK
+    }
+    documents {
+        binary document_id PK
+        binary case_id FK
+    }
+    document_files {
+        binary document_file_id PK
+        binary document_id FK
+    }
+    case_media {
+        binary case_media_id PK
+        binary case_id FK
+    }
+    extraction_runs {
+        binary extraction_run_id PK
+        binary document_id FK
+        binary source_file_id FK
+    }
+    extracted_fields {
+        binary extracted_field_id PK
+        binary extraction_run_id FK
+    }
+    mrz_records {
+        binary mrz_record_id PK
+        binary extraction_run_id FK
+    }
+    rule_sets {
+        binary rule_set_id PK
+    }
+    validation_runs {
+        binary validation_run_id PK
+        binary document_id FK
+        binary rule_set_id FK
+    }
+    validation_results {
+        binary validation_result_id PK
+        binary validation_run_id FK
+    }
+    forensic_runs {
+        binary forensic_run_id PK
+        binary document_id FK
+        binary source_file_id FK
+    }
+    forensic_findings {
+        binary forensic_finding_id PK
+        binary forensic_run_id FK
+        binary evidence_document_file_id FK
+    }
+    biometric_checks {
+        binary biometric_check_id PK
+        binary case_id FK
+        binary document_id FK
+        binary source_case_media_id FK
+        binary source_document_file_id FK
+    }
+    risk_assessments {
+        binary risk_assessment_id PK
+        binary case_id FK
+    }
+    risk_contributions {
+        binary risk_contribution_id PK
+        binary risk_assessment_id FK
+    }
+    workflow_decisions {
+        binary workflow_decision_id PK
+        binary case_id FK
+        binary officer_user_id FK
+        binary supersedes_decision_id FK
+    }
+    audit_events {
+        binary audit_event_id PK
+        binary organization_id FK
+        binary actor_user_id FK
+        binary case_id FK
+    }
+    retention_policies {
+        binary retention_policy_id PK
+        binary organization_id FK
+    }
+    legal_holds {
+        binary legal_hold_id PK
+        binary case_id FK
+        binary placed_by_user_id FK
+        binary released_by_user_id FK
+    }
+    purge_jobs {
+        binary purge_job_id PK
+        binary organization_id FK
+        binary retention_policy_id FK
+        binary requested_by_user_id FK
+    }
+    purge_job_items {
+        binary purge_job_item_id PK
+        binary purge_job_id FK
+        binary document_file_id FK
+        binary case_media_id FK
+    }
+    schema_migration_history {
+        varchar migration_version PK
+    }
+
+    organizations ||--o{ checkpoints : owns
+    organizations ||--o{ users : employs
+    organizations ||--o{ registered_devices : registers
+    organizations ||--o{ screening_cases : owns
+    organizations ||--o{ audit_events : records
+    organizations ||--o{ retention_policies : defines
+    organizations ||--o{ purge_jobs : owns
+    users ||--o{ user_roles : receives
+    roles ||--o{ user_roles : grants
+    users o|--o{ user_roles : grants_role
+    users o|--o{ registered_devices : assigned_to
+    checkpoints ||--o{ screening_cases : receives
+    registered_devices o|--o{ screening_cases : captures
+    users ||--o{ screening_cases : creates
+    screening_cases ||--o| case_subjects : identifies
+    screening_cases ||--o{ case_access_tokens : authorizes
+    users ||--o{ case_access_tokens : issues
+    registered_devices o|--o{ case_access_tokens : receives
+    screening_cases ||--o{ documents : contains
+    documents ||--o{ document_files : has
+    screening_cases ||--o{ case_media : has
+    documents ||--o{ extraction_runs : extracts
+    document_files ||--o{ extraction_runs : source
+    extraction_runs ||--o{ extracted_fields : produces
+    extraction_runs ||--o| mrz_records : parses
+    documents ||--o{ validation_runs : validates
+    rule_sets ||--o{ validation_runs : applies
+    validation_runs ||--o{ validation_results : produces
+    documents ||--o{ forensic_runs : analyzes
+    document_files ||--o{ forensic_runs : source
+    forensic_runs ||--o{ forensic_findings : produces
+    document_files o|--o{ forensic_findings : evidence_crop
+    screening_cases ||--o{ biometric_checks : assesses
+    documents o|--o{ biometric_checks : relates_to
+    case_media o|--o{ biometric_checks : live_evidence
+    document_files o|--o{ biometric_checks : document_evidence
+    screening_cases ||--o{ risk_assessments : scores
+    risk_assessments ||--o{ risk_contributions : explains
+    screening_cases ||--o{ workflow_decisions : decides
+    users ||--o{ workflow_decisions : officer
+    workflow_decisions o|--o{ workflow_decisions : supersedes
+    users o|--o{ audit_events : acts
+    screening_cases o|--o{ audit_events : audits
+    screening_cases ||--o{ legal_holds : holds
+    users ||--o{ legal_holds : places
+    users o|--o{ legal_holds : releases
+    retention_policies ||--o{ purge_jobs : governs
+    users ||--o{ purge_jobs : requests
+    purge_jobs ||--o{ purge_job_items : contains
+    document_files o|--o{ purge_job_items : purge_target
+    case_media o|--o{ purge_job_items : purge_target
