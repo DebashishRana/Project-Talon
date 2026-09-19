@@ -11,11 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+import base64
+import binascii
 import uvicorn
 import os
 import uuid
 import json
 import sqlite3
+import tempfile
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 import qrcode
@@ -28,6 +31,7 @@ from validators import DocumentValidator
 from config import settings
 from dashboard_client import publish_verification_event
 from azure_storage import get_azure_storage
+from integration.face_validator import extract_face_from_document, compare_document_face_with_live
 
 
 LEGACY_DEV_TOKEN = "veriquickx-secret-token-change-in-productio"
@@ -156,6 +160,61 @@ class FileInfo(BaseModel):
     content_type: str = "application/octet-stream"
 
 
+class FaceVerificationRequest(BaseModel):
+    document_image_base64: str
+    live_face_base64: str
+    document_filename: Optional[str] = "document.jpg"
+    match_threshold: Optional[float] = 90.0
+
+
+def _decode_base64_image(value: str, field_name: str) -> bytes:
+    if not value:
+        raise HTTPException(status_code=400, detail=f"{field_name} is required")
+
+    payload = value.split(",", 1)[1] if value.strip().startswith("data:") and "," in value else value
+    try:
+        image_bytes = base64.b64decode("".join(payload.split()), validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail=f"{field_name} must be a valid base64 image")
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail=f"{field_name} is empty")
+    if len(image_bytes) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"{field_name} exceeds {settings.MAX_FILE_SIZE_MB}MB limit")
+
+    return image_bytes
+
+
+def _score_label(score: float) -> str:
+    if score >= 95:
+        return "Strong match"
+    if score >= 90:
+        return "Good match"
+    if score >= 75:
+        return "Review advised"
+    return "Low match"
+
+
+def _face_observations(score: float, matched: bool, document_face_data_url: str) -> List[Dict[str, str]]:
+    return [
+        {
+            "title": "Document portrait",
+            "status": "PASS" if document_face_data_url else "REVIEW",
+            "detail": "Largest face was detected and cropped from the uploaded document."
+        },
+        {
+            "title": "Live capture",
+            "status": "PASS" if matched else "REVIEW",
+            "detail": "Captured face was compared directly against the extracted document portrait."
+        },
+        {
+            "title": "Similarity threshold",
+            "status": "PASS" if score >= 90 else "REVIEW",
+            "detail": f"Returned {score:.1f}% face similarity; supervisor review is recommended below 90%."
+        }
+    ]
+
+
 def _sanitize_for_json(obj):
     if isinstance(obj, (bytes, bytearray, memoryview)):
         return {"type": "bytes", "length": len(obj)}
@@ -244,6 +303,64 @@ async def process_documents(
             results.append({"success": False, "filename": filename, "error": str(error)})
 
     return {"results": results}
+
+
+@app.post("/api/face-verification/compare")
+async def compare_document_and_live_face(
+    request: FaceVerificationRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """
+    Extract the face from an uploaded document image and compare it to the live capture.
+    This is the biometric step used by the upload wizard and verification session log.
+    """
+    if not _is_valid_token(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    document_bytes = _decode_base64_image(request.document_image_base64, "document_image_base64")
+    live_face_bytes = _decode_base64_image(request.live_face_base64, "live_face_base64")
+    threshold = max(0.0, min(float(request.match_threshold or 90.0), 100.0))
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="talon-face-") as temp_dir:
+            temp_path = Path(temp_dir)
+            document_filename = Path(request.document_filename or "document.jpg").name or "document.jpg"
+            document_path = temp_path / document_filename
+            live_face_path = temp_path / "live-capture.jpg"
+            document_face_path = temp_path / "document-face.jpg"
+
+            document_path.write_bytes(document_bytes)
+            live_face_path.write_bytes(live_face_bytes)
+
+            extract_face_from_document(str(document_path), str(document_face_path))
+            result = compare_document_face_with_live(
+                str(document_face_path),
+                str(live_face_path),
+                similarity_threshold=0,
+            )
+
+            score = round(float(result.get("similarity", 0.0)), 2)
+            matched = bool(result.get("matched")) and score >= threshold
+            document_face_base64 = base64.b64encode(document_face_path.read_bytes()).decode("ascii")
+            document_face_data_url = f"data:image/jpeg;base64,{document_face_base64}"
+
+            return {
+                "success": True,
+                "provider": "aws-rekognition",
+                "matched": matched,
+                "status": "PASS" if matched else "REVIEW",
+                "match_percentage": score,
+                "confidence": round(float(result.get("confidence", score)), 2),
+                "threshold": threshold,
+                "label": _score_label(score),
+                "document_face_base64": document_face_data_url,
+                "bounding_box": result.get("bounding_box"),
+                "observations": _face_observations(score, matched, document_face_data_url),
+            }
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"Face verification service unavailable: {error}")
 
 @app.post("/api/upload")
 async def request_upload_sas(

@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FileCheck, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react'
+import { usePermission } from '../hooks/usePermission'
 import './DashboardPage.css'
 import './DashboardTheme.css'
 import './HeatmapTheme.css'
@@ -96,6 +98,7 @@ function DashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sessionTab, setSessionTab] = useState('today')
   const [heatmapPeriod, setHeatmapPeriod] = useState('year')
+  const canReadSettings = usePermission('settings', 'read')
 
   return (
     <div className={`dashboard-page ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -123,6 +126,17 @@ function DashboardPage() {
         <Link className="side-link" to="/dashboard"><span>◒</span> Risk analysis <i>⌄</i></Link>
         <Link className="side-link" to="/dashboard"><span>✓</span> Compliance <i>⌄</i></Link>
         <Link className="side-link" to="/dashboard"><span>▤</span> Reports <b className="count">3</b></Link>
+
+        {canReadSettings && (
+          <div className="sidebar-settings-block">
+            <p className="sidebar-label">Settings</p>
+            <Link className="side-link" to="/settings"><span><Settings size={15} /></span> General</Link>
+            <Link className="side-link" to="/settings/users"><span><Users size={15} /></span> User &amp; Access</Link>
+            <Link className="side-link" to="/settings/roles"><span><ShieldCheck size={15} /></span> Role Definitions</Link>
+            <Link className="side-link" to="/settings"><span><MonitorSmartphone size={15} /></span> Sessions &amp; Devices</Link>
+            <Link className="side-link" to="/settings"><span><FileCheck size={15} /></span> Audit Configuration</Link>
+          </div>
+        )}
 
         <div className="sidebar-footer">
           <span className="secure-icon">◇</span>

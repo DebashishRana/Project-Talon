@@ -20,6 +20,27 @@ function SessionDetailDrawer({ session, onClose }) {
           <div><span>Decision</span><strong>{session.status.replaceAll('_', ' ')}</strong><small>{session.riskLevel} risk · {Number(session.riskScore).toFixed(3)}</small></div>
           <div><span>Officer</span><strong>{session.officerName}</strong><small>{session.checkpointName}</small></div>
         </div>
+        {session.faceMatch !== undefined && (
+          <>
+            <h3>Face verification</h3>
+            <div className="vl-face-card">
+              <div className="vl-face-preview-row">
+                {session.documentFaceBase64 && <img src={session.documentFaceBase64} alt="Extracted document face" />}
+                {session.liveFaceBase64 && <img src={session.liveFaceBase64} alt="Live face capture" />}
+                <div>
+                  <span>Document to live match</span>
+                  <strong>{Number(session.faceMatch || 0).toFixed(1)}%</strong>
+                  <small>{session.faceVerification?.provider === 'aws-rekognition' ? 'AWS Rekognition' : 'Local fallback'}</small>
+                </div>
+              </div>
+              <div className="vl-face-observations">
+                {(session.faceObservations || []).map(item => (
+                  <p key={item.title}><strong>{item.title}</strong><span>{item.detail}</span></p>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
         <h3>Evidence signals</h3>
         <div className="vl-signal-list">
           {(session.pipeline || []).map(result => (

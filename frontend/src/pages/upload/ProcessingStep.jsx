@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { documentTypes } from '../../components/upload/DocumentTypeSelector'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
-import { compareFacesStub } from '../../utils/awsRekognition'
+import { compareDocumentFaceWithLive } from '../../utils/awsRekognition'
 import { UploadCard } from './UploadRouter'
 
 function ProcessingStep({ step }) {
   const navigate = useNavigate()
   const session = useNewSessionStore()
   const [completed, setCompleted] = useState(0)
+  const [faceComparison, setFaceComparison] = useState(null)
   const typeLabel = documentTypes.find(type => type.id === session.documentType)?.label || 'Document'
 
   const pipeline = useMemo(() => [
@@ -16,26 +17,45 @@ function ProcessingStep({ step }) {
     { label: 'Extracting text (OCR)...', result: '14 fields extracted' },
     { label: 'Parsing MRZ...', result: session.documentType === 'PASSPORT' ? 'Check digits valid' : 'Not required' },
     { label: 'Analyzing document forensics...', result: 'No tampering detected' },
-    { label: 'Comparing faces...', result: '96.4% match' },
+    { label: 'Extracting document face...', result: faceComparison?.documentFaceBase64 ? 'Document portrait isolated' : 'Waiting for biometric result' },
+    { label: 'Comparing faces...', result: faceComparison ? `${Number(faceComparison.similarity || 0).toFixed(1)}% match` : 'Waiting for biometric result' },
     { label: 'Cross-session identity check...', result: 'No anomalies' }
-  ], [session.documentCountry?.name, session.documentType, typeLabel])
+  ], [faceComparison, session.documentCountry?.name, session.documentType, typeLabel])
 
   useEffect(() => {
     let active = true
+    const delay = ms => new Promise(resolve => window.setTimeout(resolve, ms))
+
     async function run() {
-      const faceResult = await compareFacesStub(session.documentFrontBase64, session.liveFaceBase64)
-      for (let index = 0; index <= pipeline.length; index += 1) {
+      let faceResult = null
+      for (let index = 0; index < pipeline.length; index += 1) {
         if (!active) return
         setCompleted(index)
-        await new Promise(resolve => window.setTimeout(resolve, index === pipeline.length ? 800 : 650))
+        if (index === 4) {
+          faceResult = await compareDocumentFaceWithLive(session.documentFrontBase64, session.liveFaceBase64)
+          if (!active) return
+          setFaceComparison(faceResult)
+          await delay(500)
+        } else {
+          await delay(650)
+        }
       }
       if (!active) return
+      setCompleted(pipeline.length)
+      await delay(700)
+      if (!active) return
+
+      const similarity = Number(faceResult?.similarity || 0)
+      const matched = Boolean(faceResult?.match) && similarity >= 90
       newSessionStore.setProcessingResult({
-        faceMatch: faceResult.similarity,
-        riskScore: faceResult.similarity > 93 ? 0.118 : 0.542,
-        riskLevel: faceResult.similarity > 93 ? 'LOW' : 'MEDIUM',
-        status: faceResult.similarity > 93 ? 'VERIFIED' : 'MANUAL_REVIEW',
-        anomalies: faceResult.similarity > 93 ? [] : ['FACE_MATCH_REVIEW']
+        faceMatch: similarity,
+        riskScore: matched ? 0.118 : 0.542,
+        riskLevel: matched ? 'LOW' : 'MEDIUM',
+        status: matched ? 'VERIFIED' : 'MANUAL_REVIEW',
+        anomalies: matched ? [] : ['FACE_MATCH_REVIEW'],
+        faceVerification: faceResult,
+        documentFaceBase64: faceResult?.documentFaceBase64,
+        verificationObservations: faceResult?.observations || []
       })
       navigate('/upload/complete')
     }
