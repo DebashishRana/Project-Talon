@@ -11,8 +11,7 @@ const API_TOKEN = import.meta.env.VITE_API_TOKEN || 'veriquickx-secret-token-cha
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Authorization': `Bearer ${API_TOKEN}`,
-    'Content-Type': 'application/json'
+    'Authorization': `Bearer ${API_TOKEN}`
   }
 })
 
@@ -22,6 +21,13 @@ api.interceptors.request.use(
     // Ensure token is in header
     if (!config.headers['Authorization']) {
       config.headers['Authorization'] = `Bearer ${API_TOKEN}`
+    }
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      if (typeof config.headers.delete === 'function') {
+        config.headers.delete('Content-Type')
+      } else {
+        delete config.headers['Content-Type']
+      }
     }
     return config
   },

@@ -4,11 +4,13 @@ Document processing and metadata extraction
 
 import re
 import io
+import shutil
 from typing import Dict, Optional
 import PyPDF2
 import pdfplumber
 from PIL import Image
 import pytesseract
+from config import settings
 try:
     import pyzbar.pyzbar as pyzbar
 except (ImportError, OSError):
@@ -20,6 +22,8 @@ class DocumentProcessor:
     def __init__(self):
         self.pan_pattern = re.compile(r'[A-Z]{5}[0-9]{4}[A-Z]')
         self.aadhaar_pattern = re.compile(r'[2-9]{1}[0-9]{11}')
+        if settings.TESSERACT_CMD:
+            pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD
     
     def process_document(self, file_content: bytes, filename: str) -> Dict:
         """Process document and extract metadata"""
@@ -59,6 +63,18 @@ class DocumentProcessor:
                 for page in pdf.pages:
                     text += page.extract_text() or ""
 
+                # Most mobile scans are image-only PDFs.  pdfplumber can open
+                # them, but it cannot extract text that is not embedded.
+                if not text.strip():
+                    try:
+                        text = self.ocr_pdf_pages(content)
+                    except RuntimeError as error:
+                        text = ""
+                        metadata["ocr_error"] = str(error)
+                    metadata["ocr_source"] = "tesseract_pdf"
+                else:
+                    metadata["ocr_source"] = "embedded_pdf_text"
+
                 metadata["extracted_text"] = text
                 
                 # Check for QR codes in PDF
@@ -83,6 +99,15 @@ class DocumentProcessor:
                 for page in pdf_reader.pages:
                     text += page.extract_text()
 
+                if not text.strip():
+                    try:
+                        text = self.ocr_pdf_pages(content)
+                    except RuntimeError as error:
+                        text = ""
+                        metadata["ocr_error"] = str(error)
+                    metadata["ocr_source"] = "tesseract_pdf"
+                else:
+                    metadata["ocr_source"] = "embedded_pdf_text"
                 metadata["extracted_text"] = text
                 
                 if self.is_pan(text):
@@ -113,8 +138,10 @@ class DocumentProcessor:
             # OCR for text extraction
             try:
                 text = pytesseract.image_to_string(image, lang='eng')
-            except:
+                metadata["ocr_source"] = "tesseract_image"
+            except Exception as error:
                 text = ""
+                metadata["ocr_error"] = self._ocr_error_message(error)
 
             metadata["extracted_text"] = text
             
@@ -130,6 +157,33 @@ class DocumentProcessor:
             metadata["error"] = str(e)
         
         return metadata
+
+    def ocr_pdf_pages(self, content: bytes) -> str:
+        """Rasterize the first two PDF pages and OCR them with Tesseract."""
+        try:
+            from pdf2image import convert_from_bytes
+
+            images = convert_from_bytes(
+                content,
+                dpi=250,
+                first_page=1,
+                last_page=2,
+                poppler_path=settings.POPPLER_PATH or None,
+            )
+            extracted = [pytesseract.image_to_string(image, lang="eng") for image in images]
+            return "\n".join(part for part in extracted if part).strip()
+        except Exception as error:
+            raise RuntimeError(self._ocr_error_message(error)) from error
+
+    @staticmethod
+    def _ocr_error_message(error: Exception) -> str:
+        message = str(error)
+        if "Unable to get page count" in message or "PDFInfoNotInstalledError" in type(error).__name__:
+            configured = settings.POPPLER_PATH or "Windows PATH"
+            return f"PDF OCR requires Poppler (pdfinfo/pdftoppm). It was not found via {configured}."
+        if "tesseract is not installed" in message.lower() or shutil.which("tesseract") is None and not settings.TESSERACT_CMD:
+            return "Image OCR requires Tesseract. Install it or set TESSERACT_CMD in backend/.env."
+        return f"PDF OCR failed: {message}"
     
     def is_pan(self, text: str) -> bool:
         """Check if document is PAN card"""
@@ -253,7 +307,12 @@ class DocumentProcessor:
         """Extract QR code from PDF"""
         try:
             from pdf2image import convert_from_bytes
-            images = convert_from_bytes(content, first_page=0, last_page=1)
+            images = convert_from_bytes(
+                content,
+                first_page=1,
+                last_page=1,
+                poppler_path=settings.POPPLER_PATH or None,
+            )
             if images:
                 return self.extract_qr_from_image(images[0])
         except:

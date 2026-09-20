@@ -41,11 +41,12 @@ export function UploadCard({ step, title, subtitle, children, footer, backTo, cl
   )
 }
 
-function RequireStep({ children, needsOfficer, needsDocument, needsDocumentImage, needsFace }) {
+function RequireStep({ children, needsOfficer, needsDocument, needsDocumentImage, needsDocumentAnalysis, needsFace }) {
   const session = useNewSessionStore()
   if (needsOfficer && !session.officerId) return <Navigate to="/upload/authorize" replace />
   if (needsDocument && !session.documentType) return <Navigate to="/upload/document-type" replace />
   if (needsDocumentImage && !session.documentFrontBase64) return <Navigate to="/upload/prepare" replace />
+  if (needsDocumentAnalysis && !session.documentAnalysis) return <Navigate to="/upload/document-results" replace />
   if (needsFace && !session.liveFaceBase64) return <Navigate to="/upload/face" replace />
   return children
 }
@@ -62,9 +63,9 @@ function UploadRouter() {
       <Route path="prepare" element={<RequireStep needsOfficer needsDocument><PrepareStep step={step} /></RequireStep>} />
       <Route path="capture" element={<RequireStep needsOfficer needsDocument><CaptureStep /></RequireStep>} />
       <Route path="document-results" element={<RequireStep needsOfficer needsDocument needsDocumentImage><DocumentResultsStep step={step} /></RequireStep>} />
-      <Route path="face" element={<RequireStep needsOfficer needsDocument needsDocumentImage><FaceStep step={step} /></RequireStep>} />
-      <Route path="processing" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsFace><ProcessingStep step={step} /></RequireStep>} />
-      <Route path="complete" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsFace><CompleteStep step={step} /></RequireStep>} />
+      <Route path="face" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsDocumentAnalysis><FaceStep step={step} /></RequireStep>} />
+      <Route path="processing" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsDocumentAnalysis needsFace><ProcessingStep step={step} /></RequireStep>} />
+      <Route path="complete" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsDocumentAnalysis needsFace><CompleteStep step={step} /></RequireStep>} />
       <Route path="*" element={<Navigate to="/upload/authorize" replace />} />
     </Routes>
   )

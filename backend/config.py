@@ -21,6 +21,20 @@ class Settings(BaseSettings):
     
     # API Security
     API_TOKEN: str = os.getenv("API_TOKEN", "veriquickx-secret-token-change-in-production")
+
+    # Local document-processing executables.  Their values are read from the
+    # backend .env, so they do not need to be added to a Windows-wide PATH.
+    POPPLER_PATH: str = ""
+    TESSERACT_CMD: str = ""
+
+    # AWS credentials are intentionally configured here rather than read with
+    # os.getenv() at the call site.  Pydantic loads backend/.env but does not
+    # mutate the process environment, which boto3 otherwise relies on.
+    AWS_REGION: str = "ap-south-1"
+    AWS_REKOGNITION_REGION: str = "ap-south-1"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_SESSION_TOKEN: str = ""
     
     # CORS
     ALLOWED_ORIGINS: list = [
@@ -41,7 +55,7 @@ class Settings(BaseSettings):
     
     # File upload settings
     MAX_FILE_SIZE_MB: int = 20
-    ALLOWED_EXTENSIONS: list = [".pdf", ".jpg", ".jpeg", ".png"]
+    ALLOWED_EXTENSIONS: list = [".pdf", ".jpg", ".jpeg", ".png", ".webp"]
 
     # SentinelTrail MySQL database package integration.
     # Disabled by default so the existing SQLite-backed app keeps working until

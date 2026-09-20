@@ -5,7 +5,6 @@ import EmptyState from '../components/verification-logs/EmptyState'
 import FilterBar from '../components/verification-logs/FilterBar'
 import ReviewBanner from '../components/verification-logs/ReviewBanner'
 import SearchInput from '../components/verification-logs/SearchInput'
-import SessionDetailDrawer from '../components/verification-logs/SessionDetailDrawer'
 import SessionRow from '../components/verification-logs/SessionRow'
 import { exportSessionsCsv } from '../utils/csvExport'
 import { filterSessions, sessionStore, useSessionStore } from '../store/sessionStore'
@@ -52,7 +51,6 @@ function VerificationLogs() {
   const sessions = useSessionStore(state => state.sessions)
   const [filters, setFilters] = useState(emptyFilters)
   const [selectedIds, setSelectedIds] = useState([])
-  const [drawerSession, setDrawerSession] = useState(null)
   const [sort, setSort] = useState({ key: 'CREATED_AT', direction: 'desc' })
   const [page, setPage] = useState(1)
   const [contextMenu, setContextMenu] = useState(null)
@@ -89,14 +87,13 @@ function VerificationLogs() {
     const handleKey = event => {
       if (event.key === 'n' && document.activeElement?.tagName !== 'INPUT') navigate('/upload')
       if (event.key === 'Escape') {
-        if (drawerSession) setDrawerSession(null)
-        else if (filters.searchQuery) setFilters(value => ({ ...value, searchQuery: '' }))
+        if (filters.searchQuery) setFilters(value => ({ ...value, searchQuery: '' }))
         setContextMenu(null)
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [navigate, drawerSession, filters.searchQuery])
+  }, [navigate, filters.searchQuery])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -147,7 +144,6 @@ function VerificationLogs() {
     if (window.confirm(`Delete ${session.id}?`)) {
       sessionStore.deleteSession(session.id)
       setSelectedIds(value => value.filter(id => id !== session.id))
-      if (drawerSession?.id === session.id) setDrawerSession(null)
     }
     setContextMenu(null)
   }
@@ -211,7 +207,7 @@ function VerificationLogs() {
                   session={session}
                   selected={selectedIds.includes(session.id)}
                   onSelect={toggleSelect}
-                  onOpen={setDrawerSession}
+                  onOpen={openedSession => navigate(`/verifications/${encodeURIComponent(openedSession.id)}`)}
                   onContextMenu={openContextMenu}
                 />
               ))}
@@ -241,14 +237,13 @@ function VerificationLogs() {
 
       {contextMenu && (
         <div className="vl-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={event => event.stopPropagation()}>
-          <button type="button" onClick={() => { setDrawerSession(contextMenu.session); setContextMenu(null) }}>View details</button>
+          <button type="button" onClick={() => { navigate(`/verifications/${encodeURIComponent(contextMenu.session.id)}`); setContextMenu(null) }}>View details</button>
           <button type="button" onClick={() => copySessionId(contextMenu.session)}>Copy session ID</button>
           <button type="button" onClick={() => { exportSessionsCsv([contextMenu.session], `${contextMenu.session.id}.csv`); setContextMenu(null) }}>Export session</button>
           <button className="danger" type="button" onClick={() => deleteSession(contextMenu.session)}>Delete session</button>
         </div>
       )}
 
-      <SessionDetailDrawer session={drawerSession} onClose={() => setDrawerSession(null)} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import UploadRouter from './pages/upload/UploadRouter'
 import DashboardPage from './pages/DashboardPage'
 import ScannerPage from './pages/ScannerPage'
@@ -7,6 +7,7 @@ import AdminPage from './pages/AdminPage'
 import AboutPage from './pages/AboutPage'
 import LoginPage from './pages/LoginPage'
 import VerificationLogs from './pages/VerificationLogs'
+import VerificationDetail from './pages/VerificationDetail'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import GeneralSettingsPage from './pages/settings/GeneralSettingsPage'
 import UserListPage from './pages/settings/UserListPage'
@@ -20,12 +21,13 @@ import './App.css'
 function AppContent() {
   const location = useLocation()
   const [isDarkMode, setIsDarkMode] = useState(false)
-  const isAuthPage = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/login' || location.pathname === '/signup'
+  const isAuthPage = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/login'
   const isUploadFlow = location.pathname.startsWith('/upload')
+  const isVerificationDetail = location.pathname.startsWith('/verifications/')
 
   return (
     <div className={`app ${isDarkMode ? 'theme-dark' : 'theme-light'}`}>
-      {!isUploadFlow && <button
+      {!isUploadFlow && !isVerificationDetail && <button
         className="theme-toggle"
         type="button"
         onClick={() => setIsDarkMode(value => !value)}
@@ -38,10 +40,11 @@ function AppContent() {
           <Route path="/" element={<LoginPage />} />
           <Route path="/auth" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<LoginPage />} />
+          <Route path="/signup" element={<Navigate to="/login" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/upload/*" element={<UploadRouter />} />
           <Route path="/verifications" element={<VerificationLogs />} />
+          <Route path="/verifications/:sessionId" element={<VerificationDetail />} />
           <Route path="/scan" element={<ScannerPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/about" element={<AboutPage />} />

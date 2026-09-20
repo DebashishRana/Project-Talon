@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -12,6 +13,8 @@ from PIL import Image, ImageOps
 from skimage.color import rgb2gray
 from skimage.feature import hog
 
+from config import settings
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODELS_ROOT = PROJECT_ROOT / "models"
@@ -19,12 +22,54 @@ _passport_model = None
 _aadhaar_models: Dict[str, Any] | None = None
 
 
+def _ocr_fallback_models(ocr_text: str, reason: str) -> Dict[str, Any]:
+    """Return a conservative text-only verdict when image models cannot run."""
+    text = (ocr_text or "").upper()
+    passport_matched = bool(
+        "PASSPORT" in text
+        or "P<" in text
+        or any(line.startswith("P<") for line in text.splitlines())
+    )
+    aadhaar_text = text.lower()
+    aadhaar_matched = "aadhaar" in aadhaar_text or "aadhar" in aadhaar_text or "uidai" in aadhaar_text
+
+    passport = {
+        "expected": passport_matched,
+        "confidence": 0.65 if passport_matched else 0.0,
+        "status": "fallback_ocr",
+        "reason": reason,
+    }
+    aadhaar = {
+        "expected": aadhaar_matched,
+        "confidence": 0.55 if aadhaar_matched else 0.0,
+        "status": "fallback_ocr",
+        "reason": reason,
+    }
+
+    candidates = [("Aadhaar", aadhaar), ("Passport", passport)]
+    document_type, winner = max(candidates, key=lambda item: item[1]["confidence"])
+    is_expected = bool(winner["expected"] and winner["confidence"] >= 0.5)
+    return {
+        "expected_document": is_expected,
+        "document_type": document_type if is_expected else "Unknown",
+        "confidence": winner["confidence"],
+        "models": {"aadhaar": aadhaar, "passport": passport},
+        "warning": reason,
+    }
+
+
 def _image_from_content(content: bytes, filename: str) -> Image.Image:
     extension = Path(filename).suffix.lower()
     if extension == ".pdf":
         from pdf2image import convert_from_bytes
 
-        pages = convert_from_bytes(content, dpi=200, first_page=1, last_page=1)
+        pages = convert_from_bytes(
+            content,
+            dpi=200,
+            first_page=1,
+            last_page=1,
+            poppler_path=settings.POPPLER_PATH or None,
+        )
         if not pages:
             raise ValueError("PDF has no readable pages")
         return pages[0].convert("RGB")
@@ -117,16 +162,29 @@ def _run_aadhaar(image: Image.Image, ocr_text: str) -> Dict[str, Any]:
 
 def run_document_models(content: bytes, filename: str, ocr_text: str) -> Dict[str, Any]:
     """Run both classifiers after OCR and return a combined document verdict."""
-    image = _image_from_content(content, filename)
+    try:
+        image = _image_from_content(content, filename)
+    except Exception as error:
+        return _ocr_fallback_models(
+            ocr_text,
+            f"Image classifier skipped because the document could not be rasterized: {error}",
+        )
+
     aadhaar = _run_aadhaar(image, ocr_text)
 
-    passport_model = _load_passport_model()
-    passport_probability = float(passport_model.predict_proba(_image_features(image))[0, 1])
-    passport = {
-        "expected": passport_probability >= 0.5,
-        "confidence": round(passport_probability if passport_probability >= 0.5 else 1 - passport_probability, 4),
-        "status": "model",
-    }
+    try:
+        passport_model = _load_passport_model()
+        passport_probability = float(passport_model.predict_proba(_image_features(image))[0, 1])
+        passport = {
+            "expected": passport_probability >= 0.5,
+            "confidence": round(passport_probability if passport_probability >= 0.5 else 1 - passport_probability, 4),
+            "status": "model",
+        }
+    except Exception as error:
+        passport = _ocr_fallback_models(
+            ocr_text,
+            f"Passport image classifier skipped: {error}",
+        )["models"]["passport"]
 
     candidates = [("Aadhaar", aadhaar), ("Passport", passport)]
     document_type, winner = max(candidates, key=lambda item: item[1]["confidence"])

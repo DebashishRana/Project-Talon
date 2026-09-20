@@ -25,6 +25,7 @@ import qrcode
 import io
 import time
 from pathlib import Path
+from PIL import Image
 
 from document_processor import DocumentProcessor
 from validators import DocumentValidator
@@ -197,6 +198,22 @@ def _score_label(score: float) -> str:
     return "Low match"
 
 
+def _face_service_error_detail(error: Exception) -> str:
+    """Translate provider errors without returning credential material to clients."""
+    error_name = type(error).__name__
+    message = str(error)
+    if error_name == "ClientError":
+        if "IncompleteSignature" in message or "InvalidSignature" in message or "UnrecognizedClient" in message:
+            return "AWS rejected the configured credentials. Set the IAM access key ID (usually starts AKIA and is 20 characters) and its matching 40-character secret in backend/.env, then restart the backend."
+        if "AccessDenied" in message or "Unauthorized" in message:
+            return "AWS credentials are valid but the IAM user needs rekognition:DetectFaces and rekognition:CompareFaces permissions."
+        if "InvalidImageFormat" in message or "InvalidParameter" in message:
+            return "AWS could not read one of the face images. Capture a JPEG or PNG with one clear face and retry."
+    if "Unable to get page count" in message or "PDFInfoNotInstalled" in message:
+        return "PDF face extraction requires Poppler. Configure POPPLER_PATH with the directory containing pdfinfo.exe and pdftoppm.exe."
+    return "Face verification service is unavailable. Check the backend console for the safe diagnostic message."
+
+
 def _face_observations(score: float, matched: bool, document_face_data_url: str) -> List[Dict[str, str]]:
     return [
         {
@@ -215,6 +232,35 @@ def _face_observations(score: float, matched: bool, document_face_data_url: str)
             "detail": f"Returned {score:.1f}% face similarity; supervisor review is recommended below 90%."
         }
     ]
+
+
+def _write_rekognition_ready_image(image_bytes: bytes, filename: str, output_path: Path) -> Path:
+    """
+    Rekognition's face APIs accept image bytes, not PDFs. Normalize uploaded
+    documents to a JPEG page/image before face extraction.
+    """
+    extension = Path(filename or "").suffix.lower()
+    if extension == ".pdf":
+        try:
+            from pdf2image import convert_from_bytes
+        except Exception as error:
+            raise ValueError("PDF face extraction requires pdf2image and Poppler to be installed.") from error
+
+        pages = convert_from_bytes(
+            image_bytes,
+            dpi=200,
+            first_page=1,
+            last_page=1,
+            poppler_path=settings.POPPLER_PATH or None,
+        )
+        if not pages:
+            raise ValueError("PDF has no readable pages for face extraction.")
+        image = pages[0].convert("RGB")
+    else:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    image.save(output_path, format="JPEG", quality=95)
+    return output_path
 
 
 def _sanitize_for_json(obj):
@@ -272,6 +318,10 @@ async def process_documents(
             print("[OCR] Extracting text...")
             metadata = doc_processor.process_document(contents, filename)
             model_result = metadata.get("model_result", {})
+            if metadata.get("ocr_error"):
+                print(f"[OCR] {metadata['ocr_error']}")
+            if model_result.get("warning"):
+                print(f"[Models] {model_result['warning']}")
             print(f"[Models] Aadhaar: {model_result.get('models', {}).get('aadhaar', {}).get('status', 'error')}")
             print(f"[Models] Passport: {model_result.get('models', {}).get('passport', {}).get('status', 'error')}")
             print(
@@ -327,11 +377,11 @@ async def compare_document_and_live_face(
         with tempfile.TemporaryDirectory(prefix="talon-face-") as temp_dir:
             temp_path = Path(temp_dir)
             document_filename = Path(request.document_filename or "document.jpg").name or "document.jpg"
-            document_path = temp_path / document_filename
+            document_path = temp_path / "document-source.jpg"
             live_face_path = temp_path / "live-capture.jpg"
             document_face_path = temp_path / "document-face.jpg"
 
-            document_path.write_bytes(document_bytes)
+            _write_rekognition_ready_image(document_bytes, document_filename, document_path)
             live_face_path.write_bytes(live_face_bytes)
 
             extract_face_from_document(str(document_path), str(document_face_path))
@@ -386,7 +436,30 @@ async def compare_document_and_live_face(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Face verification service unavailable: {error}")
+        detail = _face_service_error_detail(error)
+        print(f"[Face verification] {type(error).__name__}: {detail}")
+        raise HTTPException(status_code=503, detail=detail)
+
+
+@app.get("/api/system-readiness")
+async def system_readiness(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Report local prerequisites without exposing any credentials or secrets."""
+    if not _is_valid_token(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    import shutil
+
+    poppler_path = settings.POPPLER_PATH or None
+    pdfinfo = shutil.which("pdfinfo") or (str(Path(poppler_path) / "pdfinfo.exe") if poppler_path and (Path(poppler_path) / "pdfinfo.exe").exists() else None)
+    pdftoppm = shutil.which("pdftoppm") or (str(Path(poppler_path) / "pdftoppm.exe") if poppler_path and (Path(poppler_path) / "pdftoppm.exe").exists() else None)
+    tesseract = settings.TESSERACT_CMD or shutil.which("tesseract")
+    models_root = Path(__file__).resolve().parents[2] / "models"
+    return {
+        "poppler": {"ready": bool(pdfinfo and pdftoppm), "configured_path": poppler_path, "pdfinfo": bool(pdfinfo), "pdftoppm": bool(pdftoppm)},
+        "tesseract": {"ready": bool(tesseract), "configured_path": settings.TESSERACT_CMD or None},
+        "aws_rekognition": {"ready": bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY), "region": settings.AWS_REKOGNITION_REGION or settings.AWS_REGION},
+        "passport_dataset": {"ready": (models_root / "Dataset" / "Passport" / "images").exists() and (models_root / "Dataset" / "Passport" / "non passport").exists()},
+    }
 
 
 @app.get("/api/sentinel-db/health")

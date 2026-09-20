@@ -14,6 +14,7 @@ const initialState = {
   documentBackFile: null,
   documentFrontBase64: null,
   documentBackBase64: null,
+  pdfContainsAllPages: false,
   captureMethod: null,
   captureSide: 'front',
   liveFaceBase64: null,
@@ -83,14 +84,20 @@ export const newSessionStore = {
     })
   },
   setDocument(documentType, documentCountry) {
-    update({ documentType, documentCountry, documentAnalysis: null, processingResult: null, savedSessionId: null })
+    update({ documentType, documentCountry, pdfContainsAllPages: false, documentAnalysis: null, processingResult: null, savedSessionId: null })
   },
   setDocumentFiles({ frontFile, backFile, frontBase64, backBase64, captureMethod }) {
+    const nextFrontBase64 = frontBase64 ?? state.documentFrontBase64
+    const nextIsPdf = String(nextFrontBase64 || '').startsWith('data:application/pdf')
+    const nextPdfContainsAllPages = frontBase64 !== undefined
+      ? false
+      : nextIsPdf ? state.pdfContainsAllPages : false
     update({
       documentFrontFile: frontFile ?? state.documentFrontFile,
       documentBackFile: backFile ?? state.documentBackFile,
-      documentFrontBase64: frontBase64 ?? state.documentFrontBase64,
+      documentFrontBase64: nextFrontBase64,
       documentBackBase64: backBase64 ?? state.documentBackBase64,
+      pdfContainsAllPages: nextPdfContainsAllPages,
       documentAnalysis: null,
       processingResult: null,
       savedSessionId: null,
@@ -100,6 +107,9 @@ export const newSessionStore = {
   },
   setCaptureSide(captureSide) {
     update({ captureSide })
+  },
+  setPdfContainsAllPages(pdfContainsAllPages) {
+    update({ pdfContainsAllPages, documentAnalysis: null, processingResult: null, savedSessionId: null })
   },
   setLiveFace(liveFaceBase64) {
     update({ liveFaceBase64, capturedAt: new Date().toISOString() })

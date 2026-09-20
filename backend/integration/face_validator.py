@@ -1,8 +1,9 @@
 
-import os
 from functools import lru_cache
 
 from PIL import Image
+
+from config import settings
 
 
 @lru_cache(maxsize=1)
@@ -13,8 +14,16 @@ def get_rekognition_client():
     """
     import boto3
 
-    region = os.getenv("AWS_REKOGNITION_REGION") or os.getenv("AWS_REGION") or "ap-south-1"
-    return boto3.client("rekognition", region_name=region)
+    region = settings.AWS_REKOGNITION_REGION or settings.AWS_REGION or "ap-south-1"
+    client_options = {"region_name": region}
+    if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+        client_options.update({
+            "aws_access_key_id": settings.AWS_ACCESS_KEY_ID,
+            "aws_secret_access_key": settings.AWS_SECRET_ACCESS_KEY,
+        })
+        if settings.AWS_SESSION_TOKEN:
+            client_options["aws_session_token"] = settings.AWS_SESSION_TOKEN
+    return boto3.client("rekognition", **client_options)
 
 def extract_face_from_document(image_path, output_path):
     """

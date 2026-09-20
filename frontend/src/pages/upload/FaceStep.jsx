@@ -24,7 +24,7 @@ function FaceStep({ step }) {
       <CameraOverlay
         title="Face verification"
         mode="face"
-        onBack={() => navigate('/upload/prepare')}
+        onBack={() => navigate('/upload/document-results')}
         onCapture={setPreview}
       />
     )
@@ -35,7 +35,7 @@ function FaceStep({ step }) {
       step={step}
       title="Face verification"
       subtitle="Look directly at the camera and ensure your face is well-lit"
-      backTo="/upload/prepare"
+      backTo="/upload/document-results"
       footer={<>
         <button className="upload-secondary" type="button" onClick={() => { setPreview(null); setFaceOk(false) }}>Retake</button>
         <button className="upload-primary" type="button" disabled={!faceOk} onClick={() => { newSessionStore.setLiveFace(preview); navigate('/upload/processing') }}>Confirm</button>

@@ -42,6 +42,7 @@ export async function compareDocumentFaceWithLive(documentImageBase64, faceImage
     }
   } catch (error) {
     console.warn('AWS face verification unavailable.', error)
+    const serviceError = error.response?.data?.detail || error.message || 'Face verification service is unavailable.'
     return {
       match: false,
       similarity: 0,
@@ -54,10 +55,10 @@ export async function compareDocumentFaceWithLive(documentImageBase64, faceImage
         {
           title: 'AWS connection',
           status: 'REVIEW',
-          detail: 'Rekognition did not respond. No face similarity score was calculated.'
+          detail: serviceError
         }
       ],
-      error: error.response?.data?.detail || error.message
+      error: serviceError
     }
   }
 }
