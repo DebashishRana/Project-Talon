@@ -11,6 +11,7 @@ import FaceStep from './FaceStep'
 import PrepareStep from './PrepareStep'
 import ProcessingStep from './ProcessingStep'
 import './UploadFlow.css'
+import './UploadFlowOverrides.css'
 
 const stepMap = {
   '/upload/authorize': 1,

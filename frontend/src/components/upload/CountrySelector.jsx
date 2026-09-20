@@ -26,6 +26,7 @@ const continentSections = [
       { code: 'IR', iso3: 'IRN', name: 'Iran' },
       { code: 'IQ', iso3: 'IRQ', name: 'Iraq' },
       { code: 'IL', iso3: 'ISR', name: 'Israel' },
+      { code: 'PS', iso3: 'PSE', name: 'Palestine' },
       { code: 'JO', iso3: 'JOR', name: 'Jordan' },
       { code: 'TR', iso3: 'TUR', name: 'Turkey' },
       { code: 'JP', iso3: 'JPN', name: 'Japan' },
@@ -137,18 +138,37 @@ export function flagEmoji(code) {
   )
 }
 
+const countryIconFiles = {
+  BT: 'bhutan.svg',
+  IL: 'israel.svg',
+  IN: 'india.svg',
+  LK: 'sri-lanka.svg',
+  NP: 'nepal.svg',
+  PK: 'pakistan.svg',
+  PS: 'palestine.svg',
+  QA: 'qatar.svg',
+  SA: 'saudi-arabia.svg'
+}
+
+function countryIconSource(country) {
+  const file = countryIconFiles[country?.code]
+  return file ? `/icons/countries/${file}` : ''
+}
+
 function CountryFlag({ country }) {
+  const iconSrc = countryIconSource(country)
   return (
     <span className="country-flag" aria-hidden="true">
-      <img
-        src={`/icons/flags/${country.code.toLowerCase()}.webp`}
-        alt=""
-        onError={event => {
-          event.currentTarget.hidden = true
-          event.currentTarget.nextElementSibling.hidden = false
-        }}
-      />
-      <span className="country-flag-fallback" hidden>{flagEmoji(country.code)}</span>
+      {iconSrc && (
+        <img
+          src={iconSrc}
+          alt=""
+          onError={event => {
+            event.currentTarget.hidden = true
+            event.currentTarget.parentElement.classList.add('missing')
+          }}
+        />
+      )}
     </span>
   )
 }

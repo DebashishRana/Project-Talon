@@ -85,7 +85,7 @@ doc_processor = DocumentProcessor()
 validator = DocumentValidator()
 
 # Database setup
-DB_PATH = "veriquickx.db"
+DB_PATH = "talon.db"
 
 def init_db():
     """Initialize SQLite database"""
@@ -289,7 +289,7 @@ app.middleware_stack = None
 
 @app.get("/")
 async def root():
-    return {"message": "VeriQuickX API", "version": "1.0.0"}
+    return {"message": "Talon API", "version": "1.0.0"}
 
 
 @app.post("/api/process-documents")

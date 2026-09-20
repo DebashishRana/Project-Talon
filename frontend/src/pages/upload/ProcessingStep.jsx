@@ -35,17 +35,31 @@ function statusFromMrz(analysis, documentType) {
   }
 }
 
+function statusFromForensics(analysis) {
+  const forensics = analysis?.forensics || {}
+  if (!analysis) return { status: 'REVIEW', detail: 'Document analysis is missing.' }
+  if (!forensics.status || forensics.status === 'NOT_RUN') {
+    return { status: 'SKIPPED', detail: forensics.detail || 'Forensic detector not connected' }
+  }
+  return {
+    status: forensics.status,
+    detail: forensics.detail || 'Forensic check completed'
+  }
+}
+
 function riskFromEvidence(faceResult, analysis, documentType) {
   const similarity = Number(faceResult?.similarity || 0)
   const classifier = statusFromClassifier(analysis)
   const ocr = statusFromOcr(analysis)
   const mrz = statusFromMrz(analysis, documentType)
+  const forensics = statusFromForensics(analysis)
   const anomalies = []
 
   if (!faceResult?.match || similarity < 90) anomalies.push('FACE_MATCH_REVIEW')
   if (classifier.status !== 'PASS') anomalies.push('DOCUMENT_CLASSIFICATION_REVIEW')
   if (ocr.status !== 'PASS') anomalies.push('OCR_REVIEW')
   if (mrz.status === 'REVIEW') anomalies.push('MRZ_REVIEW')
+  if (forensics.status === 'REVIEW' || forensics.status === 'FAIL') anomalies.push('DOCUMENT_FORENSICS_REVIEW')
 
   const riskScore = Math.min(0.95, 0.08 + anomalies.length * 0.16 + Math.max(0, 90 - similarity) / 100)
   return {
@@ -68,16 +82,17 @@ function ProcessingStep({ step }) {
     const classifier = statusFromClassifier(analysis)
     const ocr = statusFromOcr(analysis)
     const mrz = statusFromMrz(analysis, session.documentType)
+    const forensics = statusFromForensics(analysis)
     return [
-      { label: 'Document classification...', result: classifier.detail, status: classifier.status },
-      { label: 'Extracting text (OCR)...', result: ocr.detail, status: ocr.status },
-      { label: 'Parsing MRZ...', result: mrz.detail, status: mrz.status },
-      { label: 'Analyzing document forensics...', result: 'Tampering detector not connected', status: 'NOT_RUN' },
-      { label: 'Extracting document face...', result: faceComparison?.documentFaceBase64 ? 'Document portrait isolated' : 'Waiting for biometric result', status: faceComparison?.documentFaceBase64 ? 'PASS' : 'REVIEW' },
-      { label: 'Comparing faces...', result: faceComparison ? `${Number(faceComparison.similarity || 0).toFixed(1)}% match` : 'Waiting for biometric result', status: faceComparison?.match ? 'PASS' : 'REVIEW' },
-      { label: 'Preparing session evidence...', result: `${typeLabel} verification package`, status: 'PASS' }
+      { id: 'classification', label: 'Document classification...', result: classifier.detail, status: classifier.status },
+      { id: 'ocr', label: 'Extracting text (OCR)...', result: ocr.detail, status: ocr.status },
+      { id: 'mrz', label: 'Parsing MRZ...', result: mrz.detail, status: mrz.status },
+      { id: 'forensics', label: 'Forensic document checks...', result: forensics.detail, status: forensics.status },
+      { id: 'face', label: 'Extracting and comparing faces...', result: faceComparison ? `${Number(faceComparison.similarity || 0).toFixed(1)}% match` : 'Waiting for biometric result', status: faceComparison?.match ? 'PASS' : 'REVIEW' },
+      { id: 'package', label: 'Preparing forensic evidence...', result: `${typeLabel} verification package`, status: 'PASS' }
     ]
   }, [analysis, faceComparison, session.documentType, typeLabel])
+  const faceStepIndex = useMemo(() => pipeline.findIndex(item => item.id === 'face'), [pipeline])
 
   useEffect(() => {
     let active = true
@@ -88,7 +103,7 @@ function ProcessingStep({ step }) {
       for (let index = 0; index < pipeline.length; index += 1) {
         if (!active) return
         setCompleted(index)
-        if (index === 4) {
+        if (index === faceStepIndex) {
           faceResult = await compareDocumentFaceWithLive(
             session.documentFrontBase64,
             session.liveFaceBase64,
@@ -125,13 +140,14 @@ function ProcessingStep({ step }) {
 
     run()
     return () => { active = false }
-  }, [analysis, navigate, pipeline.length, session.documentFrontBase64, session.documentFrontFile?.name, session.documentType, session.liveFaceBase64])
+  }, [analysis, faceStepIndex, navigate, pipeline.length, session.documentFrontBase64, session.documentFrontFile?.name, session.documentType, session.liveFaceBase64])
 
   return (
     <UploadCard
       step={step}
-      title="Verifying your document"
-      subtitle="Running document evidence and face comparison"
+      title="Face and forensic verification"
+      subtitle="Running biometric comparison and forensic evidence checks"
+      className="processing-card"
     >
       <div className="processing-list">
         {pipeline.map((item, index) => {

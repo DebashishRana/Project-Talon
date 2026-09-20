@@ -1,0 +1,14 @@
+:root {
+  /*
+   * Dashboard scale tuning.
+   * Lower values zoom the dashboard out. Try 0.86-0.96 while experimenting.
+   */
+  --dashboard-zoom-base: 0.9;
+}
+
+@supports (zoom: 1) {
+  .verification-dashboard {
+    zoom: var(--dashboard-zoom-base);
+    min-height: calc(100vh / var(--dashboard-zoom-base));
+  }
+}

@@ -1,296 +1,238 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { FileCheck, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react'
-import { usePermission } from '../hooks/usePermission'
+import React, { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, CalendarCheck2, CheckCircle2, ClipboardList, Flag, Plus, Search } from 'lucide-react'
+import ActivityItem from '../components/dashboard/ActivityItem'
+import DashboardMetricCard from '../components/dashboard/DashboardMetricCard'
+import DateRangeFilter from '../components/dashboard/DateRangeFilter'
+import SearchInput from '../components/dashboard/SearchInput'
+import VerificationChart from '../components/dashboard/VerificationChart'
+import VerificationDetailsPanel from '../components/dashboard/VerificationDetailsPanel'
+import VerificationTable from '../components/dashboard/VerificationTable'
+import { EmptyState, ErrorState } from '../components/dashboard/StateMessages'
+import { useDashboardData } from '../hooks/useDashboardData'
+import { dashboardService } from '../services/dashboardService'
+import { getDashboardPermissions } from '../utils/dashboardAuthorization'
 import './DashboardPage.css'
-import './DashboardTheme.css'
-import './HeatmapTheme.css'
-import './RiskChartTheme.css'
 
-const metrics = [
-  { label: "ID's verefied today ", value: '12', detail: 'Compared to last week', tone: 'green' },
-  { label: 'Pending Cases', value: '43', detail: '+8% Compared to last week ', tone: 'amber'  },
-  { label: 'Flagged Sessions', value: '12', detail: '+12% compred to last month', tone: 'red' },
-  { label: 'CSII Anomalies ', value: '8', detail: '-3% compared to last week', tone: 'red',  },
+const currentUser = { name: 'Robert', role: 'admin' }
+
+const statusOptions = [
+  { value: '', label: 'All statuses' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'flagged', label: 'Flagged' },
+  { value: 'rejected', label: 'Rejected' }
 ]
 
-const todaysSessions = [
-  ['S-5004', '08:00', 'Raxaul', 'Indian Passport', 'Processing', 'LOW', 'Omkar Singh'],
-  ['S-5003', '09:30', 'Jhulaghat', 'Aadhaar + Visa', 'Flagged', 'HIGH', 'Meera Kulkarni'],
-  ['S-5001', '11:15', 'Raxaul', 'Indian Passport', 'Verified', 'LOW', 'Omkar Singh'],
-]
-
-const flaggedSessions = [
-  ['S-4998', '14:30', 'Raxaul → Delhi', 'Passport J1234567', 'CRITICAL', 'HIGH', 'Riya Sharma'],
-  ['S-4995', '09:45', 'Jhulaghat → Haldwani', 'Aadhaar Mismatch', 'Identity Hopping', 'CRITICAL', 'Arjun Kumar'],
-  ['S-4990', '16:00', 'Raxaul', 'Visa US-B1-5678', 'Tampered', 'HIGH', 'Omkar Singh'],
-  ['S-4986', '16:00', 'Raxaul', 'Passport K9876543', 'Verified', 'LOW', 'Meera Kulkarni'],
-]
-
-const flaggedCasesByMonth = [
-  [0, 1, 2, 0, 1, 3, 2, 1, 0, 2, 1, 3],
-  [1, 4, 3, 2, 4, 5, 3, 2, 1, 4, 3, 2],
-  [2, 5, 4, 6, 5, 7, 4, 5, 3, 6, 5, 4],
-  [4, 3, 5, 4, 6, 5, 7, 6, 5, 4, 6, 3],
-  [1, 2, 3, 1, 2, 4, 3, 2, 1, 3, 2, 4],
-]
-
-const heatmapMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const heatmapDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-const heatmapMonthDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-
-const verificationSummary = [
-  { label: 'Sessions screened', value: '323', change: '+16%', tone: 'blue' },
-  { label: 'Accepted', value: '234', change: '+79%', tone: 'green' },
-  { label: 'Flagged', value: '404', change: '-36%', tone: 'red' },
-  { label: 'Verified', value: '342', change: '+23%', tone: 'green' },
-  { label: 'Anomalies', value: '323', change: '+16%', tone: 'amber' },
-]
-
-// The three values form the layered bars: capacity/baseline, observed trend,
-// and the confirmed detection rate. Keeping them together makes the chart
-// readable instead of treating the blue bars as unrelated columns.
-const weeklyRiskDetection = [
-  { day: 'Mon', baseline: 80, observed: 64, detected: 43 },
-  { day: 'Tue', baseline: 89, observed: 72, detected: 40 },
-  { day: 'Wed', baseline: 97, observed: 92, detected: 24 },
-  { day: 'Thu', baseline: 71, observed: 67, detected: 47 },
-  { day: 'Fri', baseline: 87, observed: 86, detected: 77 },
-  { day: 'Sat', baseline: 100, observed: 96, detected: 57 },
-  { day: 'Sun', baseline: 87, observed: 76, detected: 30 },
-]
-
-function SessionTable({ rows, flagged = false }) {
-  return (
-    <div className="shipment-table">
-      <div className="shipment-row shipment-header">
-        <span>Session</span>
-        <span>Time</span>
-        <span>{flagged ? 'Route' : 'Checkpoint'}</span>
-        <span>Document</span>
-        <span>{flagged ? 'Anomaly Type' : 'Status'}</span>
-        <span>{flagged ? 'Severity' : 'Risk'}</span>
-        <span>Officer</span>
-      </div>
-      {rows.map((row) => (
-        <div className="shipment-row" key={row[0]}>
-          <span className="shipment-id">
-            <i className={`row-dot ${flagged ? row[5] : row[5]}`} />
-            {row[0]}
-          </span>
-          <span>{row[1]}</span>
-          <span>{row[2]}</span>
-          <span>{row[3]}</span>
-          {flagged ? (
-            <span><b className={`status-badge ${row[4] === 'Verified' ? 'green' : row[4] === 'Tampered' ? 'red' : 'amber'}`}>{row[4]}</b></span>
-          ) : (
-            <span><b className={`status-badge ${row[4] === 'Verified' ? 'green' : row[4] === 'Flagged' ? 'red' : 'blue'}`}>{row[4]}</b></span>
-          )}
-          <span><b className={`status-badge ${row[5] === 'CRITICAL' ? 'red' : row[5] === 'HIGH' ? 'amber' : 'green'}`}>{row[5]}</b></span>
-          <span className="officer-name">{row[6]}</span>
-        </div>
-      ))}
-    </div>
-  )
+function formatCompact(value) {
+  const number = Number(value || 0)
+  if (number >= 1000000) return `${(number / 1000000).toFixed(1)}M`
+  if (number >= 1000) return `${(number / 1000).toFixed(1)}K`
+  return String(number)
 }
 
-function DashboardPage() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [sessionTab, setSessionTab] = useState('today')
-  const [heatmapPeriod, setHeatmapPeriod] = useState('year')
-  const canReadSettings = usePermission('settings', 'read')
+function metricData(summary) {
+  const data = summary || {
+    totalRequests: 0,
+    successfulVerifications: 0,
+    manualReviewCases: 0,
+    approvalRate: 0,
+    pendingCount: 0,
+    flaggedCount: 0,
+    trendVsPreviousPeriod: 0
+  }
+  return [
+    {
+      title: 'Verification Requests',
+      value: formatCompact(data.totalRequests),
+      helper: `${data.pendingCount} pending`,
+      trend: data.trendVsPreviousPeriod,
+      tone: 'blue'
+    },
+    {
+      title: 'Approved',
+      value: formatCompact(data.successfulVerifications),
+      helper: `${data.approvalRate}% approval rate`,
+      trend: Number((data.approvalRate - 80).toFixed(1)),
+      tone: 'green'
+    },
+    {
+      title: 'Manual Review',
+      value: formatCompact(data.manualReviewCases),
+      helper: `${data.flaggedCount} flagged`,
+      trend: data.flaggedCount ? -1.9 : 2.8,
+      tone: 'purple'
+    }
+  ]
+}
+
+export default function DashboardPage() {
+  const navigate = useNavigate()
+  const permissions = useMemo(() => getDashboardPermissions(currentUser.role), [])
+  const [filters, setFilters] = useState({
+    range: '7d',
+    startDate: '',
+    endDate: '',
+    search: '',
+    activitySearch: '',
+    status: '',
+    verificationType: '',
+    sortBy: 'submittedAt',
+    sortDirection: 'desc',
+    page: 1,
+    limit: 10
+  })
+  const [selectedRecord, setSelectedRecord] = useState(null)
+  const { dashboard, table, loading, error, retry } = useDashboardData(filters)
+
+  const updateFilters = patch => setFilters(current => ({ ...current, ...patch }))
+
+  const changeSort = field => updateFilters({
+    sortBy: field,
+    sortDirection: filters.sortBy === field && filters.sortDirection === 'desc' ? 'asc' : 'desc',
+    page: 1
+  })
+
+  const openRecord = async id => {
+    const record = await dashboardService.getVerification(id)
+    if (record) setSelectedRecord(record)
+  }
+
+  const runAction = async (action, record, reviewNotes = '') => {
+    if (action === 'view' || action === 'review' || action === 'evidence') {
+      setSelectedRecord(record)
+      return
+    }
+    const nextStatus = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action === 'flag' ? 'flagged' : record.status
+    await dashboardService.updateVerificationStatus(record.id, nextStatus, reviewNotes || record.reviewNotes || '')
+    const updated = await dashboardService.getVerification(record.id)
+    setSelectedRecord(updated)
+    await retry()
+  }
+
+  const metrics = metricData(dashboard.summary)
 
   return (
-    <div className={`dashboard-page ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      <aside className="dashboard-sidebar">
-        <div className="sidebar-tools">
-          <div className="sidebar-search"><span>⌕</span><input placeholder="Search by session ID" /></div>
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}>
-            {sidebarCollapsed ? '›' : '‹'}
+    <main className="verification-dashboard">
+      <header className="vd-topbar">
+        <div>
+          <nav aria-label="Breadcrumb" className="vd-breadcrumb"><span>Overview</span><i />Dashboard</nav>
+          <h1>Hello, {currentUser.name}</h1>
+          <p>Here is today's snapshot of verification requests, identity decisions, and manual reviews.</p>
+        </div>
+        <div className="vd-top-actions">
+          <button className="vd-icon-button" type="button" aria-label="Search dashboard"><Search size={16} /></button>
+          <button className="vd-icon-button" type="button" aria-label="Notifications"><Bell size={16} /></button>
+          <DateRangeFilter
+            range={filters.range}
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            onChange={updateFilters}
+          />
+          <button className="vd-primary-button" type="button" disabled={!permissions.canInitiateVerification} onClick={() => navigate('/upload/authorize')}>
+            <Plus size={16} /> New Verification
           </button>
         </div>
+      </header>
 
-        <p className="sidebar-label">Workspace</p>
-        <Link className="side-link selected" to="/dashboard"><span>◈</span> Overview</Link>
-        <Link className="side-link" to="/upload"><span>＋</span> Start new session</Link>
-        <Link className="side-link" to="/dashboard"><span>▦</span> Batch processing</Link>
-        <Link className="side-link" to="/dashboard"><span>◌</span> Flagged cases</Link>
-        <Link className="side-link" to="/verifications"><span>▤</span> Verification logs</Link>
+      {error && <ErrorState message={error} onRetry={retry} />}
 
-        <p className="sidebar-label">Intelligence</p>
-        <Link className="side-link" to="/dashboard"><span>⬡</span> CSII Graph</Link>
-        <Link className="side-link" to="/dashboard"><span>✧</span> Anomaly explorer <b className="count">7</b></Link>
-        <Link className="side-link" to="/dashboard"><span>✦</span> Ask Sarvam</Link>
+      <section className="vd-metric-grid" aria-label="Dashboard summary metrics">
+        {metrics.map(metric => <DashboardMetricCard {...metric} loading={loading} key={metric.title} />)}
+      </section>
 
-        <p className="sidebar-label">Controls</p>
-        <Link className="side-link" to="/dashboard"><span>◒</span> Risk analysis <i>⌄</i></Link>
-        <Link className="side-link" to="/dashboard"><span>✓</span> Compliance <i>⌄</i></Link>
-        <Link className="side-link" to="/dashboard"><span>▤</span> Reports <b className="count">3</b></Link>
-
-        {canReadSettings && (
-          <div className="sidebar-settings-block">
-            <p className="sidebar-label">Settings</p>
-            <Link className="side-link" to="/settings"><span><Settings size={15} /></span> General</Link>
-            <Link className="side-link" to="/settings/users"><span><Users size={15} /></span> User &amp; Access</Link>
-            <Link className="side-link" to="/settings/roles"><span><ShieldCheck size={15} /></span> Role Definitions</Link>
-            <Link className="side-link" to="/settings"><span><MonitorSmartphone size={15} /></span> Sessions &amp; Devices</Link>
-            <Link className="side-link" to="/settings"><span><FileCheck size={15} /></span> Audit Configuration</Link>
-          </div>
-        )}
-
-        <div className="sidebar-footer">
-          <span className="secure-icon">◇</span>
-          <div><strong>Protected workspace</strong><small>Encrypted processing active</small></div>
-        </div>
-      </aside>
-
-      <main className="dashboard-main-content">
-        <header className="dashboard-heading">
-          <div>
-            <p className="dashboard-kicker">OPERATIONS CENTER</p>
-            <h1>Dashboard</h1>
-            <p className="dashboard-subtitle">Border screening activity and identity intelligence at a glance.</p>
-          </div>
-          <button className="dashboard-notification" aria-label="Notifications">♧<b>2</b></button>
-        </header>
-
-        <section className="metric-grid">
-          {metrics.map(metric => (
-            <article className={`metric-card ${metric.tone}`} key={metric.label}>
-              <div className="metric-top">
-                <span className="metric-icon">{metric.icon}</span>
-                <span>{metric.label}</span>
-                <small>30-day ↗</small>
-              </div>
-              <strong>{metric.value}</strong>
-              {metric.detail && <b className="metric-change">{metric.detail}</b>}
-            </article>
-          ))}
-        </section>
-
-        <section className="alert-grid">
-          <article className="alert-card red">
-            <span className="alert-icon">▣</span>
+      <section className="vd-dashboard-grid">
+        <article className="vd-panel vd-chart-panel">
+          <div className="vd-panel-head">
             <div>
-              <strong>SESSION-20260914: CRITICAL risk detected</strong>
-              <small>Identity hopping + impossible travel · Raxaul checkpoint</small>
+              <span>Verification Volume</span>
+              <h2>{dashboard.summary ? `${dashboard.summary.totalRequests} requests` : 'Loading requests'}</h2>
             </div>
-            <span className="alert-arrow">↗</span>
-          </article>
-          <article className="alert-card blue">
-            <span className="alert-icon">▣</span>
-            <div>
-              <strong>Model v2.3 deployed: accuracy improvement</strong>
-              <small>Few-shot adaptation layer updated · 5 new visa patterns</small>
-            </div>
-            <span className="alert-arrow">↗</span>
-          </article>
-        </section>
-
-        <div className="dashboard-content-grid">
-          <div className="dashboard-main-column">
-            <section className="panel-card shipments-panel">
-              <div className="panel-heading compact">
-                <div className="shipment-tabs">
-                  <button className={sessionTab === 'today' ? 'active' : ''} onClick={() => setSessionTab('today')}>Today's</button>
-                  <button className={sessionTab === 'flagged' ? 'active' : ''} onClick={() => setSessionTab('flagged')}>Flagged</button>
-                </div>
-                <button className="panel-link">View all</button>
-              </div>
-              {sessionTab === 'today'
-                ? <SessionTable rows={todaysSessions} />
-                : <SessionTable rows={flaggedSessions} flagged />}
-            </section>
-
-            <section className="panel-card shipments-panel latest-panel">
-              <div className="panel-heading compact">
-                <h2>Latest Verifications</h2>
-                <button className="panel-link">View all</button>
-              </div>
-              <SessionTable rows={flaggedSessions} flagged />
-              <div className="summary-section">
-                <h3>Overall cases</h3>
-                <div className="summary-metrics" aria-label="Verification summary">
-                  {verificationSummary.map(item => (
-                    <div className="summary-metric" key={item.label}>
-                      <span className={`summary-icon ${item.tone}`}>◌</span>
-                      <small>{item.label}</small>
-                      <strong>{item.value}</strong>
-                      <b className={item.tone}>{item.change}</b>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
+            <select value={filters.status} onChange={event => updateFilters({ status: event.target.value, page: 1 })} aria-label="Filter chart and table by status">
+              {statusOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
+            </select>
           </div>
+          <div className="vd-chart-kpis">
+            <div><CalendarCheck2 size={15} /><span>Approval rate</span><strong>{dashboard.summary?.approvalRate || 0}%</strong></div>
+            <div><ClipboardList size={15} /><span>Pending</span><strong>{dashboard.summary?.pendingCount || 0}</strong></div>
+            <div><Flag size={15} /><span>Flagged</span><strong>{dashboard.summary?.flaggedCount || 0}</strong></div>
+          </div>
+          <VerificationChart points={dashboard.chart} loading={loading} />
+        </article>
 
-          <aside className="dashboard-side-column">
-            <section className="panel-card profitability-panel">
-              <div className="panel-heading compact">
-                <h2>Risk &amp; Detection</h2>
-                <button className="panel-link">More</button>
-              </div>
-              <div className="bar-chart" role="img" aria-label="Risk and detection trend for Monday through Sunday">
-                {weeklyRiskDetection.map(({ day, baseline, observed, detected }) => (
-                  <div className="bar-group" key={day} aria-label={`${day}: ${detected}% confirmed detection, ${observed}% observed trend, ${baseline}% baseline`}>
-                    <div className="bar-track">
-                      <span className="bar-total" style={{ height: `${baseline}%` }} />
-                      <i className="bar-secondary" style={{ height: `${observed}%` }} />
-                      <i className="bar-primary" style={{ height: `${detected}%` }} />
-                    </div>
-                    <span>{day}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="profit-stats">
-                <div><strong>94.2%</strong><small>Detection Accuracy</small></div>
-                <div><strong>1.8%</strong><small>False Positive Rate</small></div>
-                <div><strong>0.4%</strong><small>False Negative Rate</small></div>
-              </div>
-              <div className="legend">
-                <span><i className="legend-profit" /> Detection rate</span>
-                <span><i className="legend-cost" /> Baseline</span>
-                <small>This week⌄</small>
-              </div>
-            </section>
+        <aside className="vd-panel vd-activity-panel">
+          <div className="vd-panel-head compact">
+            <div><span>Latest Updates</span><h2>Activity</h2></div>
+            <button type="button" onClick={retry}>Refresh</button>
+          </div>
+          <SearchInput
+            id="activity-search"
+            value={filters.activitySearch}
+            onChange={value => updateFilters({ activitySearch: value })}
+            placeholder="Search user, source, or event"
+            label="Search latest updates"
+          />
+          <div className="vd-activity-list">
+            {loading ? Array.from({ length: 4 }).map((_, index) => <div className="vd-activity-skeleton" key={index} />) : dashboard.activities.map(activity => (
+              <ActivityItem activity={activity} onOpen={openRecord} key={activity.id} />
+            ))}
+            {!loading && dashboard.activities.length === 0 && <EmptyState title="No latest updates found." body="Try adjusting the latest updates search." />}
+          </div>
+        </aside>
+      </section>
 
-            <section className="panel-card heatmap-panel">
-              <div className="panel-heading compact">
-                <h2>Flagged Cases Heatmap</h2>
-                <select className="heatmap-period" value={heatmapPeriod} onChange={event => setHeatmapPeriod(event.target.value)} aria-label="Heatmap period">
-                  <option value="year">This year</option>
-                  {heatmapMonths.map(month => <option value={month} key={month}>{month} 2026</option>)}
-                </select>
-              </div>
-              <div className="heatmap flagged-cases-heatmap">
-                {heatmapPeriod === 'year' ? <>
-                  <div className="heatmap-months"><span />{heatmapMonths.map(month => <span key={month}>{month}</span>)}</div>
-                  {flaggedCasesByMonth.map((week, weekIndex) => (
-                    <div className="heatmap-row" key={heatmapDays[weekIndex]}>
-                      <span>{heatmapDays[weekIndex]}</span>
-                      {week.map((count, monthIndex) => <i className={`heat-cell level-${count}`} key={`${weekIndex}-${monthIndex}`} title={`${heatmapMonths[monthIndex]} 2026: ${count} flagged cases`} />)}
-                    </div>
-                  ))}
-                </> : <>
-                  <div className="heatmap-months daily-head"><span />{Array.from({ length: 7 }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-                  {heatmapMonthDays.map((day, dayIndex) => (
-                    <div className="heatmap-row daily-row" key={day}>
-                      <span>{day}</span>
-                      {Array.from({ length: 7 }, (_, index) => {
-                        const count = (dayIndex * 3 + index * 2 + heatmapMonths.indexOf(heatmapPeriod)) % 8
-                        return <i className={`heat-cell level-${count}`} key={`${dayIndex}-${index}`} title={`${heatmapPeriod} 2026, ${day} ${index + 1}: ${count} flagged cases`} />
-                      })}
-                    </div>
-                  ))}
-                </>}
-              </div>
-              <div className="heatmap-scale"><span>Fewer</span><i className="heat-legend level-0" /><i className="heat-legend level-2" /><i className="heat-legend level-4" /><i className="heat-legend level-6" /><i className="heat-legend level-7" /><span>More</span></div>
-            </section>
-          </aside>
-        </div>
-      </main>
-    </div>
+      <section className="vd-record-controls" aria-label="Verification record filters">
+        <SearchInput
+          id="records-search"
+          value={filters.search}
+          onChange={value => updateFilters({ search: value, page: 1 })}
+          placeholder="Search by user, verification ID, session ID, source, or type"
+          label="Search verification records"
+        />
+        <label>
+          <span className="sr-only">Filter by status</span>
+          <select value={filters.status} onChange={event => updateFilters({ status: event.target.value, page: 1 })}>
+            {statusOptions.map(option => <option value={option.value} key={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">Filter by verification type</span>
+          <select value={filters.verificationType} onChange={event => updateFilters({ verificationType: event.target.value, page: 1 })}>
+            <option value="">All types</option>
+            {table.verificationTypes.map(type => <option value={type} key={type}>{type}</option>)}
+          </select>
+        </label>
+        <button type="button" onClick={() => updateFilters({ search: '', status: '', verificationType: '', page: 1 })}>Reset</button>
+      </section>
+
+      <VerificationTable
+        records={table.records}
+        loading={loading}
+        page={table.page}
+        totalPages={table.totalPages}
+        total={table.total}
+        sortBy={filters.sortBy}
+        sortDirection={filters.sortDirection}
+        onSort={changeSort}
+        onPageChange={page => updateFilters({ page })}
+        onOpen={openRecord}
+        onAction={runAction}
+        permissions={permissions}
+      />
+
+      <section className="vd-operational-note">
+        <CheckCircle2 size={16} />
+        <span>Cards, filters, table actions, details, and review transitions are backed by the dashboard service adapter and can be swapped to REST endpoints without rewriting this page.</span>
+      </section>
+
+      {selectedRecord && (
+        <VerificationDetailsPanel
+          record={selectedRecord}
+          permissions={permissions}
+          onClose={() => setSelectedRecord(null)}
+          onAction={runAction}
+        />
+      )}
+    </main>
   )
 }
-
-export default DashboardPage

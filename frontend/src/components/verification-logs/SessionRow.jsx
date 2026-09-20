@@ -4,7 +4,6 @@ const stageLabels = {
   CLASSIFICATION: 'CLASS',
   OCR: 'OCR',
   MRZ: 'MRZ',
-  FORENSICS: 'FOR',
   BIOMETRICS: 'BIO',
   CSII: 'CSII'
 }

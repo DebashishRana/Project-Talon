@@ -1,5 +1,5 @@
 import React from 'react'
-import { FileSearch, ScanText, ShieldAlert, ScanLine } from 'lucide-react'
+import { FileSearch, ScanText, ScanLine } from 'lucide-react'
 import { subjectFields } from '../../utils/documentAnalysis'
 
 const labels = { passport_number: 'Passport number', date_of_birth: 'Date of birth', expiration_date: 'Expiry date', issuing_country: 'Issuing country', nationality: 'Nationality', surname: 'Surname', given_names: 'Given names', sex: 'Sex' }
@@ -19,7 +19,7 @@ function EvidenceCard({ icon: Icon, title, status, summary, children }) {
 
 export default function DocumentEvidence({ analysis }) {
   if (!analysis) return <p className="evidence-empty">Document analysis is pending.</p>
-  const { metadata = {}, classifier = {}, mrz, forensics } = analysis
+  const { metadata = {}, classifier = {}, mrz } = analysis
   const fields = subjectFields(analysis)
   const passport = classifier.models?.passport
   const passportProbability = passport ? (passport.expected ? passport.confidence : 1 - passport.confidence) : null
@@ -43,7 +43,6 @@ export default function DocumentEvidence({ analysis }) {
           <details><summary>MRZ lines and checks</summary><pre>{mrz.lines.join('\n')}</pre><p>Check digits: {Object.entries(mrz.check_digits || {}).map(([key, value]) => `${key}: ${value ?? '-'}`).join(' | ')}</p></details>
         </>}
       </EvidenceCard>
-      <EvidenceCard icon={ShieldAlert} title="Tampering analysis" status={forensics?.status || 'NOT_RUN'} summary={forensics?.detail || 'No forensic result was returned.'} />
     </div>
   )
 }

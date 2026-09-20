@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ShieldX, X } from 'lucide-react'
 import { documentTypes } from '../../components/upload/DocumentTypeSelector'
 import { flagEmoji } from '../../components/upload/CountrySelector'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
@@ -49,7 +50,6 @@ function pipelineFromEvidence(session, result, score, providerLabel) {
       status: session.documentType === 'PASSPORT' ? (mrz?.detected && mrz.status === 'valid' ? 'PASS' : 'WARN') : 'SKIPPED',
       detail: session.documentType === 'PASSPORT' ? (mrz?.detected ? `MRZ status: ${mrz.status}` : 'MRZ not found') : 'MRZ not required'
     },
-    { stage: 'FORENSICS', status: 'SKIPPED', detail: 'Tampering detector is not connected to this service yet' },
     { stage: 'BIOMETRICS', status: biometricStatus, confidence: Number(score.toFixed(1)), detail: providerLabel },
     { stage: 'CSII', status: 'SKIPPED', detail: 'Graph review available from session details' }
   ]
@@ -80,6 +80,9 @@ function CompleteStep({ step }) {
   const navigate = useNavigate()
   const session = useNewSessionStore()
   const savedRef = useRef(false)
+  const [isDeclineOpen, setIsDeclineOpen] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [declineNote, setDeclineNote] = useState('')
   const result = session.processingResult || { riskLevel: 'MEDIUM', riskScore: 0.5, status: 'MANUAL_REVIEW', faceMatch: 0, anomalies: [] }
   const fields = subjectFields(session.documentAnalysis)
   const typeLabel = documentTypes.find(type => type.id === session.documentType)?.label || 'Document'
@@ -94,11 +97,12 @@ function CompleteStep({ step }) {
   const sentinel = result.faceVerification?.sentinel
 
   const display = useMemo(() => {
+    if (result.status === 'REJECTED') return { title: 'Session Declined', subtitle: 'The officer decision and reason were recorded.', tone: 'critical' }
     if (result.riskLevel === 'LOW') return { title: 'Verification Complete', subtitle: 'Document and face checks are ready.', tone: 'low' }
     if (result.riskLevel === 'MEDIUM') return { title: 'Session Flagged for Review', subtitle: 'One or more checks need officer review.', tone: 'medium' }
     if (result.riskLevel === 'HIGH') return { title: 'High Risk Detected', subtitle: 'Multiple checks need supervisor review.', tone: 'high' }
     return { title: 'Critical Risk Escalated', subtitle: 'This session has been escalated for immediate review.', tone: 'critical' }
-  }, [result.riskLevel])
+  }, [result.riskLevel, result.status])
 
   useEffect(() => {
     if (session.savedSessionId || savedRef.current) return
@@ -140,6 +144,36 @@ function CompleteStep({ step }) {
     navigate('/upload/authorize')
   }
 
+  const declineSession = () => {
+    if (!declineReason) return
+    const anomalies = Array.from(new Set([...(result.anomalies || []), 'SESSION_DECLINED']))
+    const declinedResult = {
+      ...result,
+      status: 'REJECTED',
+      riskLevel: 'HIGH',
+      riskScore: Math.max(Number(result.riskScore || 0), 0.75),
+      anomalies,
+      declineReason,
+      declineNote: declineNote.trim()
+    }
+    const note = `Declined: ${declineReason}${declineNote.trim() ? `. ${declineNote.trim()}` : ''}`
+
+    newSessionStore.setProcessingResult(declinedResult)
+    if (session.savedSessionId) {
+      sessionStore.updateSession(session.savedSessionId, {
+        status: 'REJECTED',
+        riskLevel: 'HIGH',
+        riskScore: declinedResult.riskScore,
+        csiiAnomalyCount: anomalies.length,
+        csiiAnomalies: anomalies,
+        declineReason,
+        declineNote: declineNote.trim(),
+        notes: note
+      })
+    }
+    setIsDeclineOpen(false)
+  }
+
   return (
     <UploadCard
       step={step}
@@ -170,6 +204,11 @@ function CompleteStep({ step }) {
         </section>
 
         <section className="match-analysis-panel">
+          <div className="match-analysis-actions">
+            <button className="decline-session-button" type="button" onClick={() => setIsDeclineOpen(true)} disabled={result.status === 'REJECTED'}>
+              <ShieldX size={16} /> {result.status === 'REJECTED' ? 'Session declined' : 'Decline session'}
+            </button>
+          </div>
           <div className="match-score-head">
             <div>
               <span>Face Match Confidence</span>
@@ -204,6 +243,30 @@ function CompleteStep({ step }) {
         <div><span>Risk score</span><strong>{Number(result.riskScore).toFixed(3)} ({result.riskLevel})</strong></div>
         <div><span>Database</span><strong>{sentinel?.recorded ? sentinel.case_reference : sentinel?.enabled ? 'Not recorded' : 'Local session'}</strong></div>
       </div>
+      {isDeclineOpen && (
+        <div className="decline-modal-backdrop" role="presentation" onMouseDown={() => setIsDeclineOpen(false)}>
+          <section className="decline-modal" role="dialog" aria-modal="true" aria-labelledby="decline-session-title" onMouseDown={event => event.stopPropagation()}>
+            <header>
+              <span>Decline session</span>
+              <button type="button" aria-label="Close decline dialog" onClick={() => setIsDeclineOpen(false)}><X size={18} /></button>
+            </header>
+            <h2 id="decline-session-title">Add a reason for declining this session</h2>
+            <fieldset>
+              <legend>Select a reason for declining</legend>
+              {[
+                'Known fraud',
+                'Live capture does not match the document portrait',
+                'Suspected document tampering',
+                'Suspicious behaviour',
+                'Document does not match other submitted documents',
+                'Other'
+              ].map(reason => <label key={reason}><input type="radio" name="decline-reason" value={reason} checked={declineReason === reason} onChange={() => setDeclineReason(reason)} /><span>{reason}</span></label>)}
+            </fieldset>
+            <label className="decline-note" htmlFor="decline-note">Officer note<textarea id="decline-note" value={declineNote} onChange={event => setDeclineNote(event.target.value)} placeholder="Add a note for the session record" /></label>
+            <footer><button type="button" className="decline-cancel" onClick={() => setIsDeclineOpen(false)}>Cancel</button><button type="button" className="decline-confirm" disabled={!declineReason} onClick={declineSession}><ShieldX size={16} /> Decline session</button></footer>
+          </section>
+        </div>
+      )}
     </UploadCard>
   )
 }

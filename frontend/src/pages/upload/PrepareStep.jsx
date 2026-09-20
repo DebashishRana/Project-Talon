@@ -5,7 +5,8 @@ import { flagEmoji } from '../../components/upload/CountrySelector'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
 import { fileToBase64 } from '../../utils/camera'
 import { UploadCard } from './UploadRouter'
-import uploadIcon from '../../../icons/upload.webp'
+
+const uploadIcon = '/icons/upload.webp'
 
 function requiresBack(documentType) {
   return documentTypes.find(type => type.id === documentType)?.requiresBack

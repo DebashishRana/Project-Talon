@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, FileText, Fingerprint, ImageOff, ScanFace, ShieldCheck, ShieldAlert, UserRound, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileText, Fingerprint, ImageOff, ScanFace, X } from 'lucide-react'
 import DocumentEvidence from './upload/DocumentEvidence'
 import { useSessionStore } from '../store/sessionStore'
 import './VerificationDetail.css'
@@ -8,8 +8,7 @@ import './VerificationDetail.css'
 const tabs = [
   { id: 'overview', label: 'Overview' },
   { id: 'identity', label: 'ID verification' },
-  { id: 'face-match', label: 'Face match' },
-  { id: 'forensics', label: 'Forensic screening' }
+  { id: 'face-match', label: 'Face match' }
 ]
 
 function label(value) {
@@ -45,7 +44,6 @@ function VerificationDetail() {
   const session = useSessionStore(state => state.sessions.find(item => item.id === sessionId))
 
   const analysis = session?.documentAnalysis || {}
-  const metadata = analysis.metadata || {}
   const faceScore = Number(session?.faceMatch || 0)
   const faceProvider = session?.faceVerification?.provider === 'aws-rekognition' ? 'AWS Rekognition' : session?.faceVerification?.provider === 'unavailable' ? 'Face service unavailable' : 'Face comparison'
   const faceObservations = session?.faceObservations?.length ? session.faceObservations : [
@@ -63,12 +61,7 @@ function VerificationDetail() {
 
   if (!session) return <Navigate to="/verifications" replace />
 
-  const classification = stageFor(session, 'CLASSIFICATION')
-  const ocr = stageFor(session, 'OCR')
-  const mrz = stageFor(session, 'MRZ')
-  const forensics = stageFor(session, 'FORENSICS')
   const biometrics = stageFor(session, 'BIOMETRICS')
-  const csii = stageFor(session, 'CSII')
 
   const selectTab = tabId => {
     setActiveTab(tabId)
@@ -103,7 +96,7 @@ function VerificationDetail() {
         <div className="verification-summary-grid">
           <article><span>Subject</span><strong>{session.subjectNameMasked}</strong><small>{session.subjectNationality} / DOB {session.subjectDobMasked}</small></article>
           <article><span>Document</span><strong>{label(session.documentType)}</strong><small>{session.documentCountry} / {session.documentNumberMasked}</small></article>
-          <article><span>Decision</span><strong>{label(session.status)}</strong><small>{session.riskLevel} risk / {Number(session.riskScore || 0).toFixed(3)}</small></article>
+          <article><span>Decision</span><strong>{label(session.status)}</strong><small>{session.declineReason || `${session.riskLevel} risk / ${Number(session.riskScore || 0).toFixed(3)}`}</small></article>
           <article><span>Officer</span><strong>{session.officerName || 'Not available'}</strong><small>{session.checkpointName || 'Checkpoint not recorded'}</small></article>
         </div>
       </section>
@@ -143,19 +136,6 @@ function VerificationDetail() {
         </div>
       </section>
 
-      <section className="verification-section verification-forensics-section" id="forensics">
-        <div className="verification-section-heading"><div><p>Forensic screening</p><h2>Evidence layers and monitoring</h2></div><ShieldCheck size={22} /></div>
-        <div className="verification-screening-summary">
-          <div><span>Tampering analysis</span><strong>{label(analysis.forensics?.status || forensics.status)}</strong><p>{analysis.forensics?.detail || forensics.detail || 'No tampering result was recorded.'}</p></div>
-          <div><span>CSII monitoring</span><strong>{label(session.csiiStatus)}</strong><p>{session.csiiAnomalies?.length ? session.csiiAnomalies.join(', ') : 'No CSII anomalies recorded.'}</p></div>
-          <div><span>SentinelTrail</span><strong>{session.sentinelCase?.recorded ? 'Recorded' : 'Local session'}</strong><p>{session.sentinelCase?.recorded ? session.sentinelCase.case_reference : session.sentinelCase?.error || 'No remote case reference.'}</p></div>
-        </div>
-        <div className="verification-layer-list">
-          {[classification, ocr, mrz, forensics, biometrics, csii].map(item => <article key={item.stage} className={statusClass(item.status)}><span>{item.stage}</span><strong>{label(item.status)}</strong><p>{item.confidence !== undefined ? `${Number(item.confidence).toFixed(1)}% confidence / ` : ''}{item.detail || 'No detail recorded.'}</p></article>)}
-        </div>
-        {metadata.extracted_text?.trim() && <details className="verification-ocr-details"><summary>Extracted OCR text</summary><pre>{metadata.extracted_text}</pre></details>}
-        {session.notes && <div className="verification-notes"><ShieldAlert size={18} /><p>{session.notes}</p></div>}
-      </section>
     </main>
   )
 }
