@@ -27,7 +27,7 @@ class DocumentProcessor:
         
         if file_ext == 'pdf':
             metadata = self.process_pdf(file_content, filename)
-        elif file_ext in ['jpg', 'jpeg', 'png']:
+        elif file_ext in ['jpg', 'jpeg', 'png', 'webp']:
             metadata = self.process_image(file_content, filename)
         else:
             return {"document_type": "Unknown", "error": "Unsupported file type"}

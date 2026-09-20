@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import CountrySelector from '../../components/upload/CountrySelector'
+import CountrySelector, { countries } from '../../components/upload/CountrySelector'
 import DocumentTypeSelector from '../../components/upload/DocumentTypeSelector'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
 import { UploadCard } from './UploadRouter'
@@ -9,7 +9,7 @@ function DocumentTypeStep({ step }) {
   const navigate = useNavigate()
   const session = useNewSessionStore()
   const [documentType, setDocumentType] = useState(session.documentType)
-  const [country, setCountry] = useState(session.documentCountry)
+  const [country, setCountry] = useState(session.documentCountry || countries[0])
 
   const continueFlow = () => {
     newSessionStore.setDocument(documentType, country)

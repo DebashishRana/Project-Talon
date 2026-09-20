@@ -58,7 +58,7 @@ function PrepareStep({ step }) {
       backTo="/upload/document-type"
       footer={<>
         <button className="upload-secondary" type="button" onClick={() => newSessionStore.setCaptureSide('front')}>Upload from device</button>
-        <button className="upload-primary" type="button" onClick={() => canContinue ? navigate('/upload/face') : navigate('/upload/capture')}>{canContinue ? 'Continue' : 'Take photo of the front side'}</button>
+        <button className="upload-primary" type="button" onClick={() => canContinue ? navigate('/upload/document-results') : navigate('/upload/capture')}>{canContinue ? 'Analyze document' : 'Take photo of the front side'}</button>
       </>}
     >
       <div className="info-chip-row">

@@ -32,7 +32,11 @@ function ProcessingStep({ step }) {
         if (!active) return
         setCompleted(index)
         if (index === 4) {
-          faceResult = await compareDocumentFaceWithLive(session.documentFrontBase64, session.liveFaceBase64)
+          faceResult = await compareDocumentFaceWithLive(
+            session.documentFrontBase64,
+            session.liveFaceBase64,
+            { documentType: session.documentType }
+          )
           if (!active) return
           setFaceComparison(faceResult)
           await delay(500)

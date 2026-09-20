@@ -72,6 +72,7 @@ function CompleteStep({ step }) {
   const liveFace = session.liveFaceBase64
   const observations = result.verificationObservations?.length ? result.verificationObservations : defaultObservations(result)
   const providerLabel = result.faceVerification?.provider === 'aws-rekognition' ? 'AWS Rekognition' : 'Local fallback'
+  const sentinel = result.faceVerification?.sentinel
 
   const display = useMemo(() => {
     if (result.riskLevel === 'LOW') return { title: 'Verification Complete', subtitle: 'Document and live face checks are ready.', tone: 'low' }
@@ -102,6 +103,7 @@ function CompleteStep({ step }) {
       ],
       faceMatch: score,
       faceVerification: result.faceVerification,
+      sentinelCase: sentinel,
       faceObservations: observations,
       documentFaceBase64: documentFace,
       liveFaceBase64: liveFace,
@@ -191,6 +193,7 @@ function CompleteStep({ step }) {
         <div><span>Subject</span><strong>RAHUL S****</strong></div>
         <div><span>Document</span><strong>{flagEmoji(session.documentCountry?.code)} {session.documentCountry?.name} {typeLabel}</strong></div>
         <div><span>Risk score</span><strong>{Number(result.riskScore).toFixed(3)} ({result.riskLevel})</strong></div>
+        <div><span>Database</span><strong>{sentinel?.recorded ? sentinel.case_reference : sentinel?.enabled ? 'Not recorded' : 'SQLite session'}</strong></div>
       </div>
     </UploadCard>
   )

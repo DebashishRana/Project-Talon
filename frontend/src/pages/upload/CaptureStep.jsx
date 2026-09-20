@@ -23,12 +23,12 @@ function CaptureStep() {
         newSessionStore.setCaptureSide('back')
         setPreview(null)
       } else {
-        navigate('/upload/face')
+        navigate('/upload/document-results')
       }
     } else {
       newSessionStore.setDocumentFiles({ backBase64: preview, captureMethod: 'camera' })
       newSessionStore.setCaptureSide('front')
-      navigate('/upload/face')
+      navigate('/upload/document-results')
     }
   }
 

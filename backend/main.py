@@ -32,6 +32,7 @@ from config import settings
 from dashboard_client import publish_verification_event
 from azure_storage import get_azure_storage
 from integration.face_validator import extract_face_from_document, compare_document_face_with_live
+from integration import sentinel_db
 
 
 LEGACY_DEV_TOKEN = "veriquickx-secret-token-change-in-productio"
@@ -164,6 +165,7 @@ class FaceVerificationRequest(BaseModel):
     document_image_base64: str
     live_face_base64: str
     document_filename: Optional[str] = "document.jpg"
+    document_type: Optional[str] = None
     match_threshold: Optional[float] = 90.0
 
 
@@ -341,8 +343,31 @@ async def compare_document_and_live_face(
 
             score = round(float(result.get("similarity", 0.0)), 2)
             matched = bool(result.get("matched")) and score >= threshold
-            document_face_base64 = base64.b64encode(document_face_path.read_bytes()).decode("ascii")
+            document_face_bytes = document_face_path.read_bytes()
+            document_face_base64 = base64.b64encode(document_face_bytes).decode("ascii")
             document_face_data_url = f"data:image/jpeg;base64,{document_face_base64}"
+            sentinel_record = {"enabled": False, "recorded": False}
+
+            try:
+                sentinel_record = sentinel_db.record_face_verification(
+                    document_bytes=document_bytes,
+                    live_face_bytes=live_face_bytes,
+                    document_face_bytes=document_face_bytes,
+                    document_filename=document_filename,
+                    document_type=request.document_type,
+                    match_percentage=score,
+                    matched=matched,
+                    threshold=threshold,
+                    provider_result=_sanitize_for_json(result),
+                )
+            except Exception as error:
+                if settings.SENTINEL_DB_STRICT:
+                    raise
+                sentinel_record = {
+                    "enabled": True,
+                    "recorded": False,
+                    "error": str(error),
+                }
 
             return {
                 "success": True,
@@ -356,11 +381,30 @@ async def compare_document_and_live_face(
                 "document_face_base64": document_face_data_url,
                 "bounding_box": result.get("bounding_box"),
                 "observations": _face_observations(score, matched, document_face_data_url),
+                "sentinel": sentinel_record,
             }
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Face verification service unavailable: {error}")
+
+
+@app.get("/api/sentinel-db/health")
+async def sentinel_database_health(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Check whether the optional SentinelTrail MySQL integration is configured."""
+    if not _is_valid_token(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        return sentinel_db.health_check()
+    except Exception as error:
+        if settings.SENTINEL_DB_STRICT:
+            raise HTTPException(status_code=503, detail=str(error))
+        return {
+            "enabled": True,
+            "status": "error",
+            "error": str(error),
+        }
 
 @app.post("/api/upload")
 async def request_upload_sas(

@@ -42,6 +42,34 @@ class Settings(BaseSettings):
     # File upload settings
     MAX_FILE_SIZE_MB: int = 20
     ALLOWED_EXTENSIONS: list = [".pdf", ".jpg", ".jpeg", ".png"]
+
+    # SentinelTrail MySQL database package integration.
+    # Disabled by default so the existing SQLite-backed app keeps working until
+    # MySQL 8.0 and the migrations in mainapp/database are ready.
+    SENTINEL_DB_ENABLED: bool = os.getenv("SENTINEL_DB_ENABLED", "false").lower() == "true"
+    SENTINEL_DB_STRICT: bool = os.getenv("SENTINEL_DB_STRICT", "false").lower() == "true"
+    SENTINEL_DB_HOST: str = os.getenv("SENTINEL_DB_HOST", "localhost")
+    SENTINEL_DB_PORT: int = int(os.getenv("SENTINEL_DB_PORT", "3306"))
+    SENTINEL_DB_NAME: str = os.getenv("SENTINEL_DB_NAME", "sentineltrail")
+    SENTINEL_DB_USER: str = os.getenv("SENTINEL_DB_USER", "talon_app")
+    SENTINEL_DB_PASSWORD: str = os.getenv("SENTINEL_DB_PASSWORD", "")
+    SENTINEL_DB_SSL_DISABLED: bool = os.getenv("SENTINEL_DB_SSL_DISABLED", "true").lower() == "true"
+    SENTINEL_ORGANIZATION_ID: str = os.getenv("SENTINEL_ORGANIZATION_ID", "")
+    SENTINEL_CHECKPOINT_ID: str = os.getenv("SENTINEL_CHECKPOINT_ID", "")
+    SENTINEL_OFFICER_USER_ID: str = os.getenv("SENTINEL_OFFICER_USER_ID", "")
+    SENTINEL_DEVICE_ID: str = os.getenv("SENTINEL_DEVICE_ID", "")
+    SENTINEL_ORGANIZATION_CODE: str = os.getenv("SENTINEL_ORGANIZATION_CODE", "TALON-DEMO")
+    SENTINEL_ORGANIZATION_NAME: str = os.getenv("SENTINEL_ORGANIZATION_NAME", "Talon Demo Authority")
+    SENTINEL_CHECKPOINT_CODE: str = os.getenv("SENTINEL_CHECKPOINT_CODE", "DEMO-GATE-1")
+    SENTINEL_CHECKPOINT_NAME: str = os.getenv("SENTINEL_CHECKPOINT_NAME", "Demo Verification Gate")
+    SENTINEL_CHECKPOINT_COUNTRY: str = os.getenv("SENTINEL_CHECKPOINT_COUNTRY", "IN")
+    SENTINEL_ISSUING_STATE_CODE: str = os.getenv("SENTINEL_ISSUING_STATE_CODE", "IND")
+    SENTINEL_CHECKPOINT_TIMEZONE: str = os.getenv("SENTINEL_CHECKPOINT_TIMEZONE", "Asia/Kolkata")
+    SENTINEL_OFFICER_SUBJECT: str = os.getenv("SENTINEL_OFFICER_SUBJECT", "talon-demo-officer")
+    SENTINEL_OFFICER_NAME: str = os.getenv("SENTINEL_OFFICER_NAME", "Talon Demo Officer")
+    SENTINEL_DEVICE_PUBLIC_ID: str = os.getenv("SENTINEL_DEVICE_PUBLIC_ID", "talon-mainapp-workstation")
+    SENTINEL_DOCUMENT_RETENTION_DAYS: int = int(os.getenv("SENTINEL_DOCUMENT_RETENTION_DAYS", "7"))
+    SENTINEL_BIOMETRIC_RETENTION_HOURS: int = int(os.getenv("SENTINEL_BIOMETRIC_RETENTION_HOURS", "12"))
     
     class Config:
         env_file = ".env"

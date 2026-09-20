@@ -6,6 +6,7 @@ import AuthorizeStep from './AuthorizeStep'
 import CaptureStep from './CaptureStep'
 import CompleteStep from './CompleteStep'
 import DocumentTypeStep from './DocumentTypeStep'
+import DocumentResultsStep from './DocumentResultsStep'
 import FaceStep from './FaceStep'
 import PrepareStep from './PrepareStep'
 import ProcessingStep from './ProcessingStep'
@@ -16,6 +17,7 @@ const stepMap = {
   '/upload/document-type': 2,
   '/upload/prepare': 3,
   '/upload/capture': 3,
+  '/upload/document-results': 3,
   '/upload/face': 4,
   '/upload/processing': 5,
   '/upload/complete': 5
@@ -34,7 +36,6 @@ export function UploadCard({ step, title, subtitle, children, footer, backTo, cl
         </header>
         {children}
         {footer && <div className="upload-card-footer">{footer}</div>}
-        <p className="upload-secure-footer">▣ Secured by TALON</p>
       </section>
     </div>
   )
@@ -60,6 +61,7 @@ function UploadRouter() {
       <Route path="document-type" element={<RequireStep needsOfficer><DocumentTypeStep step={step} /></RequireStep>} />
       <Route path="prepare" element={<RequireStep needsOfficer needsDocument><PrepareStep step={step} /></RequireStep>} />
       <Route path="capture" element={<RequireStep needsOfficer needsDocument><CaptureStep /></RequireStep>} />
+      <Route path="document-results" element={<RequireStep needsOfficer needsDocument needsDocumentImage><DocumentResultsStep step={step} /></RequireStep>} />
       <Route path="face" element={<RequireStep needsOfficer needsDocument needsDocumentImage><FaceStep step={step} /></RequireStep>} />
       <Route path="processing" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsFace><ProcessingStep step={step} /></RequireStep>} />
       <Route path="complete" element={<RequireStep needsOfficer needsDocument needsDocumentImage needsFace><CompleteStep step={step} /></RequireStep>} />

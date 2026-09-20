@@ -19,6 +19,7 @@ const initialState = {
   liveFaceBase64: null,
   capturedAt: null,
   processingResult: null,
+  documentAnalysis: null,
   savedSessionId: null
 }
 
@@ -82,7 +83,7 @@ export const newSessionStore = {
     })
   },
   setDocument(documentType, documentCountry) {
-    update({ documentType, documentCountry })
+    update({ documentType, documentCountry, documentAnalysis: null, processingResult: null, savedSessionId: null })
   },
   setDocumentFiles({ frontFile, backFile, frontBase64, backBase64, captureMethod }) {
     update({
@@ -90,6 +91,9 @@ export const newSessionStore = {
       documentBackFile: backFile ?? state.documentBackFile,
       documentFrontBase64: frontBase64 ?? state.documentFrontBase64,
       documentBackBase64: backBase64 ?? state.documentBackBase64,
+      documentAnalysis: null,
+      processingResult: null,
+      savedSessionId: null,
       captureMethod: captureMethod ?? state.captureMethod,
       capturedAt: new Date().toISOString()
     })
@@ -102,6 +106,9 @@ export const newSessionStore = {
   },
   setProcessingResult(processingResult) {
     update({ processingResult })
+  },
+  setDocumentAnalysis(documentAnalysis) {
+    update({ documentAnalysis })
   },
   setSavedSessionId(savedSessionId) {
     update({ savedSessionId })

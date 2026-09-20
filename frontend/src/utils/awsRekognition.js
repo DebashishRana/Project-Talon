@@ -18,12 +18,13 @@ export async function compareFacesStub(documentImageBase64, faceImageBase64) {
   }
 }
 
-export async function compareDocumentFaceWithLive(documentImageBase64, faceImageBase64) {
+export async function compareDocumentFaceWithLive(documentImageBase64, faceImageBase64, options = {}) {
   try {
     const response = await api.post('/api/face-verification/compare', {
       document_image_base64: documentImageBase64,
       live_face_base64: faceImageBase64,
-      document_filename: 'document.jpg',
+      document_filename: options.documentFilename || 'document.jpg',
+      document_type: options.documentType,
       match_threshold: 90
     })
     const data = response.data
@@ -36,33 +37,24 @@ export async function compareDocumentFaceWithLive(documentImageBase64, faceImage
       label: data.label || (data.matched ? 'Good match' : 'Review advised'),
       documentFaceBase64: data.document_face_base64,
       boundingBox: data.bounding_box,
-      observations: Array.isArray(data.observations) ? data.observations : []
+      observations: Array.isArray(data.observations) ? data.observations : [],
+      sentinel: data.sentinel
     }
   } catch (error) {
-    console.warn('AWS face verification unavailable; using local fallback.', error)
-    const fallback = await compareFacesStub(documentImageBase64, faceImageBase64)
+    console.warn('AWS face verification unavailable.', error)
     return {
-      ...fallback,
-      confidence: fallback.similarity,
-      provider: 'local-fallback',
-      status: fallback.match ? 'PASS' : 'REVIEW',
-      label: fallback.match ? 'Simulated match' : 'Review advised',
-      documentFaceBase64: documentImageBase64,
+      match: false,
+      similarity: 0,
+      confidence: 0,
+      provider: 'unavailable',
+      status: 'NOT_RUN',
+      label: 'Face service unavailable',
+      documentFaceBase64: null,
       observations: [
         {
           title: 'AWS connection',
           status: 'REVIEW',
-          detail: 'Rekognition did not respond, so the app preserved the flow with local fallback scoring.'
-        },
-        {
-          title: 'Document portrait',
-          status: documentImageBase64 ? 'PASS' : 'REVIEW',
-          detail: 'Uploaded document image is present in the session.'
-        },
-        {
-          title: 'Live capture',
-          status: faceImageBase64 ? 'PASS' : 'REVIEW',
-          detail: 'Live face capture is present in the session.'
+          detail: 'Rekognition did not respond. No face similarity score was calculated.'
         }
       ],
       error: error.response?.data?.detail || error.message

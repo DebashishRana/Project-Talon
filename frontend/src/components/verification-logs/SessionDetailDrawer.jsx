@@ -20,6 +20,16 @@ function SessionDetailDrawer({ session, onClose }) {
           <div><span>Decision</span><strong>{session.status.replaceAll('_', ' ')}</strong><small>{session.riskLevel} risk · {Number(session.riskScore).toFixed(3)}</small></div>
           <div><span>Officer</span><strong>{session.officerName}</strong><small>{session.checkpointName}</small></div>
         </div>
+        {session.sentinelCase?.enabled && (
+          <div className="vl-notes">
+            <strong>SentinelTrail database</strong>
+            <p>
+              {session.sentinelCase.recorded
+                ? `Recorded as ${session.sentinelCase.case_reference} with biometric check ${session.sentinelCase.biometric_check_id}.`
+                : `Not recorded: ${session.sentinelCase.error || 'database write was skipped'}.`}
+            </p>
+          </div>
+        )}
         {session.faceMatch !== undefined && (
           <>
             <h3>Face verification</h3>
