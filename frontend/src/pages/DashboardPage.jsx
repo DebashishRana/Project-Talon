@@ -12,9 +12,9 @@ import { EmptyState, ErrorState } from '../components/dashboard/StateMessages'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { dashboardService } from '../services/dashboardService'
 import { getDashboardPermissions } from '../utils/dashboardAuthorization'
+import { useRBACStore } from '../store/rbacStore'
 import './DashboardPage.css'
-
-const currentUser = { name: 'Robert', role: 'admin' }
+import './DashboardPageOverrides.css'
 
 const statusOptions = [
   { value: '', label: 'All statuses' },
@@ -36,10 +36,14 @@ function metricData(summary) {
     totalRequests: 0,
     successfulVerifications: 0,
     manualReviewCases: 0,
+    rejectedDocuments: 0,
     approvalRate: 0,
     pendingCount: 0,
     flaggedCount: 0,
-    trendVsPreviousPeriod: 0
+    trendVsPreviousPeriod: 0,
+    approvedTrend: 0,
+    manualReviewTrend: 0,
+    rejectedTrend: 0
   }
   return [
     {
@@ -53,22 +57,30 @@ function metricData(summary) {
       title: 'Approved',
       value: formatCompact(data.successfulVerifications),
       helper: `${data.approvalRate}% approval rate`,
-      trend: Number((data.approvalRate - 80).toFixed(1)),
+      trend: data.approvedTrend,
       tone: 'green'
     },
     {
       title: 'Manual Review',
       value: formatCompact(data.manualReviewCases),
       helper: `${data.flaggedCount} flagged`,
-      trend: data.flaggedCount ? -1.9 : 2.8,
-      tone: 'purple'
+      trend: data.manualReviewTrend,
+      tone: 'amber'
+    },
+    {
+      title: 'Rejected Documents',
+      value: formatCompact(data.rejectedDocuments),
+      helper: 'rejected in this period',
+      trend: data.rejectedTrend,
+      tone: 'red'
     }
   ]
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const permissions = useMemo(() => getDashboardPermissions(currentUser.role), [])
+  const currentUser = useRBACStore(state => state.users.find(user => user.id === state.currentUserId))
+  const permissions = useMemo(() => getDashboardPermissions(currentUser?.roleId || 'operative'), [currentUser?.roleId])
   const [filters, setFilters] = useState({
     range: '7d',
     startDate: '',
@@ -117,7 +129,7 @@ export default function DashboardPage() {
       <header className="vd-topbar">
         <div>
           <nav aria-label="Breadcrumb" className="vd-breadcrumb"><span>Overview</span><i />Dashboard</nav>
-          <h1>Hello, {currentUser.name}</h1>
+          <h1>Good Morning, {currentUser?.fullName || 'User'}</h1>
           <p>Here is today's snapshot of verification requests, identity decisions, and manual reviews.</p>
         </div>
         <div className="vd-top-actions">
@@ -162,7 +174,7 @@ export default function DashboardPage() {
 
         <aside className="vd-panel vd-activity-panel">
           <div className="vd-panel-head compact">
-            <div><span>Latest Updates</span><h2>Activity</h2></div>
+            <div><span>Latest Updates</span><h2>Recent verifications</h2></div>
             <button type="button" onClick={retry}>Refresh</button>
           </div>
           <SearchInput

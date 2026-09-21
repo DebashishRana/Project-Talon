@@ -11,9 +11,10 @@ interface SecuritySectionProps {
   }
   onChange: (field: string, value: string | boolean) => void
   onGenerate: () => void
+  error?: string
 }
 
-export default function SecuritySection({ values, onChange, onGenerate }: SecuritySectionProps) {
+export default function SecuritySection({ values, onChange, onGenerate, error }: SecuritySectionProps) {
   const copyPassword = async () => {
     if (values.temporaryPassword) await navigator.clipboard?.writeText(values.temporaryPassword)
   }
@@ -25,9 +26,10 @@ export default function SecuritySection({ values, onChange, onGenerate }: Securi
         <div className="password-box">
           <button className="secondary-button" type="button" onClick={onGenerate}><KeyRound size={16} /> Generate secure password</button>
           <div className="generated-password">
-            <input value={values.temporaryPassword} onChange={event => onChange('temporaryPassword', event.target.value)} placeholder="Temporary password" />
+            <input type="password" value={values.temporaryPassword} onChange={event => onChange('temporaryPassword', event.target.value)} placeholder="Temporary password" />
             <button type="button" onClick={copyPassword} aria-label="Copy temporary password"><Copy size={16} /></button>
           </div>
+          {error && <small className="settings-field-error">{error}</small>}
         </div>
         <div className="settings-checks">
           <label><input type="checkbox" checked={values.sendEmail} onChange={event => onChange('sendEmail', event.target.checked)} /> Send via email to the user</label>

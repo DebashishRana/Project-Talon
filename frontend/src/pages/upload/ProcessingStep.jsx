@@ -47,12 +47,33 @@ function statusFromForensics(analysis) {
   }
 }
 
+function documentConfidenceFromEvidence(analysis, documentType) {
+  const classifier = statusFromClassifier(analysis)
+  const ocr = statusFromOcr(analysis)
+  const mrz = statusFromMrz(analysis, documentType)
+  const forensics = statusFromForensics(analysis)
+  const classifierConfidence = Number(analysis?.classifier?.confidence || 0) * 100
+  let score = classifierConfidence || 50
+
+  if (classifier.status === 'PASS') score += 8
+  else score -= 18
+  if (ocr.status === 'PASS') score += 8
+  else score -= 15
+  if (mrz.status === 'PASS') score += 8
+  if (mrz.status === 'REVIEW') score -= 18
+  if (forensics.status === 'REVIEW') score -= 20
+  if (forensics.status === 'FAIL') score -= 35
+
+  return Math.max(0, Math.min(100, Math.round(score * 10) / 10))
+}
+
 function riskFromEvidence(faceResult, analysis, documentType) {
   const similarity = Number(faceResult?.similarity || 0)
   const classifier = statusFromClassifier(analysis)
   const ocr = statusFromOcr(analysis)
   const mrz = statusFromMrz(analysis, documentType)
   const forensics = statusFromForensics(analysis)
+  const documentConfidence = documentConfidenceFromEvidence(analysis, documentType)
   const anomalies = []
 
   if (!faceResult?.match || similarity < 90) anomalies.push('FACE_MATCH_REVIEW')
@@ -60,13 +81,17 @@ function riskFromEvidence(faceResult, analysis, documentType) {
   if (ocr.status !== 'PASS') anomalies.push('OCR_REVIEW')
   if (mrz.status === 'REVIEW') anomalies.push('MRZ_REVIEW')
   if (forensics.status === 'REVIEW' || forensics.status === 'FAIL') anomalies.push('DOCUMENT_FORENSICS_REVIEW')
+  if (documentConfidence < 60) anomalies.push('DOCUMENT_RISKY')
+  else if (documentConfidence < 75) anomalies.push('DOCUMENT_SUSPICIOUS')
 
   const riskScore = Math.min(0.95, 0.08 + anomalies.length * 0.16 + Math.max(0, 90 - similarity) / 100)
+  const confidenceRequiresReview = documentConfidence < 75
   return {
     anomalies,
+    documentConfidence,
     riskScore,
-    riskLevel: anomalies.length === 0 ? 'LOW' : anomalies.length <= 2 ? 'MEDIUM' : 'HIGH',
-    status: anomalies.length === 0 ? 'VERIFIED' : 'MANUAL_REVIEW'
+    riskLevel: documentConfidence < 60 || anomalies.length > 2 ? 'HIGH' : confidenceRequiresReview || anomalies.length ? 'MEDIUM' : 'LOW',
+    status: confidenceRequiresReview || anomalies.length ? 'MANUAL_REVIEW' : 'VERIFIED'
   }
 }
 
@@ -127,6 +152,7 @@ function ProcessingStep({ step }) {
       const evidenceRisk = riskFromEvidence(faceResult, analysis, session.documentType)
       newSessionStore.setProcessingResult({
         faceMatch: Number(faceResult?.similarity || 0),
+        documentConfidence: evidenceRisk.documentConfidence,
         riskScore: evidenceRisk.riskScore,
         riskLevel: evidenceRisk.riskLevel,
         status: evidenceRisk.status,

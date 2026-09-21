@@ -22,11 +22,20 @@ const rolePolicies = {
     canReject: false,
     canFlag: true,
     canViewEvidence: true
+  },
+  viewer: {
+    canInitiateVerification: false,
+    canReview: false,
+    canApprove: false,
+    canReject: false,
+    canFlag: false,
+    canViewEvidence: true
   }
 }
 
 export function getDashboardPermissions(role = 'admin') {
-  return rolePolicies[role] || rolePolicies.operator
+  const normalizedRole = role === 'super_admin' ? 'admin' : role === 'operative' ? 'operator' : role
+  return rolePolicies[normalizedRole] || rolePolicies.viewer
 }
 
 export function actionsForRecord(record, permissions = rolePolicies.operator) {

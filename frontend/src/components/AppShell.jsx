@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   FileText,
   Gauge,
-  Info,
   Lock,
+  LogOut,
+  Plug,
   Radar,
   ScanLine,
   Settings,
@@ -16,6 +18,7 @@ import {
   Users
 } from 'lucide-react'
 import { usePermission } from '../hooks/usePermission'
+import { useRBACStore } from '../store/rbacStore'
 import './AppShell.css'
 
 const COLLAPSE_KEY = 'talon_nav_collapsed_v1'
@@ -40,7 +43,16 @@ function NavSection({ title, children }) {
 
 export default function AppShell({ children, isDarkMode, onToggleTheme }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const canReadDashboard = usePermission('dashboard', 'read')
+  const canCreateSessions = usePermission('sessions', 'create')
+  const canReadLogs = usePermission('verification_logs', 'read')
+  const canReadDevices = usePermission('devices', 'read')
   const canReadSettings = usePermission('settings', 'read')
+  const canReadAnalytics = usePermission('analytics', 'read')
+  const canReadIntegrations = usePermission('integrations', 'read')
+  const logout = useRBACStore(state => state.logout)
+  const currentUser = useRBACStore(state => state.users.find(user => user.id === state.currentUserId))
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.localStorage.getItem(COLLAPSE_KEY) === 'true'
@@ -57,6 +69,10 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
   }, [collapsed])
 
   const inSettings = location.pathname.startsWith('/settings')
+  const signOut = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className={`app-shell ${collapsed ? 'collapsed' : ''}`}>
@@ -80,18 +96,19 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
 
         <nav className="app-nav">
           <NavSection title="Overview">
-            <NavItem to="/dashboard" icon={Gauge} label="Dashboard" />
+            {canReadDashboard && <NavItem to="/dashboard" icon={Gauge} label="Dashboard" />}
           </NavSection>
 
           <NavSection title="Verification">
-            <NavItem to="/upload/authorize" icon={ScanLine} label="New Verification" />
-            <NavItem to="/verifications" icon={FileText} label="Verification Logs" end />
-            <NavItem to="/scan" icon={Radar} label="Scanner" />
+            {canCreateSessions && <NavItem to="/upload/authorize" icon={ScanLine} label="New Verification" />}
+            {canReadLogs && <NavItem to="/verifications" icon={FileText} label="Verification Logs" end />}
+            {canReadDevices && <NavItem to="/scan" icon={Radar} label="Scanner" />}
           </NavSection>
 
           <NavSection title="Workspace">
-            <NavItem to="/admin" icon={UserCog} label="Admin Console" />
-            <NavItem to="/about" icon={Info} label="About" />
+            {canReadSettings && <NavItem to="/admin" icon={UserCog} label="Admin Console" />}
+            {canReadAnalytics && <NavItem to="/analytics" icon={BarChart3} label="Analytics" />}
+            {canReadIntegrations && <NavItem to="/integrations" icon={Plug} label="Integrations" />}
           </NavSection>
 
           {canReadSettings && (
@@ -104,9 +121,14 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
         </nav>
 
         <div className="app-sidebar-footer">
+          <small>{currentUser?.fullName || 'Authorized user'}</small>
           <button type="button" onClick={onToggleTheme} aria-label="Toggle color theme">
             <Activity size={14} />
             <span>{isDarkMode ? 'Light mode' : 'Dark mode'}</span>
+          </button>
+          <button type="button" onClick={signOut} aria-label="Sign out">
+            <LogOut size={14} />
+            <span>Sign out</span>
           </button>
           <small>{inSettings ? 'Settings active' : 'Operational workspace'}</small>
         </div>

@@ -24,7 +24,7 @@ const stepMap = {
   '/upload/complete': 5
 }
 
-export function UploadCard({ step, title, subtitle, children, footer, backTo, className = '' }) {
+export function UploadCard({ step, title, subtitle, children, footer, headerAction, backTo, className = '' }) {
   const navigate = useNavigate()
   return (
     <div className="upload-flow-page">
@@ -32,8 +32,11 @@ export function UploadCard({ step, title, subtitle, children, footer, backTo, cl
         <ProgressBar step={step} />
         {backTo && <button className="upload-back" type="button" onClick={() => navigate(backTo)}>‹</button>}
         <header className="upload-card-header">
-          <h1>{title}</h1>
-          {subtitle && <p>{subtitle}</p>}
+          <div>
+            <h1>{title}</h1>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          {headerAction && <div className="upload-card-header-action">{headerAction}</div>}
         </header>
         {children}
         {footer && <div className="upload-card-footer">{footer}</div>}

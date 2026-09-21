@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShieldX, X } from 'lucide-react'
+import { Check, ShieldX, UserRoundCheck, X } from 'lucide-react'
 import { documentTypes } from '../../components/upload/DocumentTypeSelector'
 import { flagEmoji } from '../../components/upload/CountrySelector'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
@@ -10,6 +10,7 @@ import { maskDob, maskDocumentNumber, maskName } from '../../utils/masking'
 import { subjectFields } from '../../utils/documentAnalysis'
 import DocumentEvidence from './DocumentEvidence'
 import { UploadCard } from './UploadRouter'
+import './CompleteStep.css'
 
 function normalizeDocumentType(type) {
   if (type === 'VISA') return 'VISA'
@@ -23,6 +24,13 @@ function scoreTone(score) {
   if (score >= 90) return { label: 'Good', tone: 'low' }
   if (score >= 75) return { label: 'Review', tone: 'medium' }
   return { label: 'Low', tone: 'critical' }
+}
+
+function documentConfidenceMeta(score) {
+  if (score < 60) return { label: 'Tampered / unsafe', tone: 'critical', decision: 'tampered / unsafe' }
+  if (score < 75) return { label: 'Suspicious', tone: 'medium', decision: 'suspicious' }
+  if (score > 80) return { label: 'Safe', tone: 'low', decision: 'safe' }
+  return { label: 'Review', tone: 'medium', decision: 'requires review' }
 }
 
 function pipelineFromEvidence(session, result, score, providerLabel) {
@@ -81,13 +89,25 @@ function CompleteStep({ step }) {
   const session = useNewSessionStore()
   const savedRef = useRef(false)
   const [isDeclineOpen, setIsDeclineOpen] = useState(false)
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
   const [declineNote, setDeclineNote] = useState('')
-  const result = session.processingResult || { riskLevel: 'MEDIUM', riskScore: 0.5, status: 'MANUAL_REVIEW', faceMatch: 0, anomalies: [] }
+  const [approvalNote, setApprovalNote] = useState('')
+  const result = {
+    riskLevel: 'MEDIUM',
+    riskScore: 0.5,
+    status: 'MANUAL_REVIEW',
+    faceMatch: 0,
+    documentConfidence: 0,
+    anomalies: [],
+    ...(session.processingResult || {})
+  }
   const fields = subjectFields(session.documentAnalysis)
   const typeLabel = documentTypes.find(type => type.id === session.documentType)?.label || 'Document'
   const score = Number(result.faceMatch || 0)
   const scoreMeta = scoreTone(score)
+  const documentConfidence = Number(result.documentConfidence ?? 0)
+  const documentConfidenceState = documentConfidenceMeta(documentConfidence)
   const documentFace = result.documentFaceBase64 || result.faceVerification?.documentFaceBase64
   const liveFace = session.liveFaceBase64
   const observations = result.verificationObservations?.length ? result.verificationObservations : fallbackObservations(result)
@@ -119,6 +139,7 @@ function CompleteStep({ step }) {
       documentAnalysis: session.documentAnalysis,
       pipeline: pipelineFromEvidence(session, result, score, providerLabel),
       faceMatch: score,
+      documentConfidence,
       faceVerification: result.faceVerification,
       sentinelCase: sentinel,
       faceObservations: observations,
@@ -134,7 +155,7 @@ function CompleteStep({ step }) {
       csiiStatus: 'PENDING',
       csiiAnomalyCount: result.anomalies.length,
       csiiAnomalies: result.anomalies,
-      notes: `Created by the upload wizard. Face match: ${score.toFixed(1)}% via ${providerLabel}.`
+      notes: `Created by the upload wizard. Document screening confidence: ${documentConfidence.toFixed(1)}%. Face match: ${score.toFixed(1)}% via ${providerLabel}.`
     })
     newSessionStore.setSavedSessionId(saved.id)
   }, [documentFace, fields, liveFace, observations, providerLabel, result, score, sentinel, session])
@@ -174,15 +195,85 @@ function CompleteStep({ step }) {
     setIsDeclineOpen(false)
   }
 
+  const moveToHumanVerification = () => {
+    const anomalies = Array.from(new Set([...(result.anomalies || []), 'HUMAN_VERIFICATION_REQUESTED']))
+    const humanReviewResult = {
+      ...result,
+      status: 'MANUAL_REVIEW',
+      riskLevel: result.riskLevel === 'LOW' ? 'MEDIUM' : result.riskLevel,
+      anomalies,
+      humanVerificationRequested: true
+    }
+    newSessionStore.setProcessingResult(humanReviewResult)
+    if (session.savedSessionId) {
+      sessionStore.updateSession(session.savedSessionId, {
+        status: 'MANUAL_REVIEW',
+        riskLevel: humanReviewResult.riskLevel,
+        csiiAnomalyCount: anomalies.length,
+        csiiAnomalies: anomalies,
+        humanVerificationRequested: true,
+        notes: 'Moved to human verification for officer review.'
+      })
+    }
+  }
+
+  const recordApproval = ({ note, isOverride }) => {
+    const approvalResult = {
+      ...result,
+      status: 'VERIFIED',
+      riskLevel: 'LOW',
+      approvedByOfficer: true,
+      approvalOverrideReason: isOverride ? note : undefined,
+      approvalMethod: isOverride ? 'OFFICER_OVERRIDE' : 'CONFIDENCE_THRESHOLD'
+    }
+    newSessionStore.setProcessingResult(approvalResult)
+    if (session.savedSessionId) {
+      sessionStore.updateSession(session.savedSessionId, {
+        status: 'VERIFIED',
+        riskLevel: 'LOW',
+        approvalOverrideReason: isOverride ? note : undefined,
+        approvedByOfficer: true,
+        approvalMethod: approvalResult.approvalMethod,
+        notes: isOverride
+          ? `Officer approved this document as valid. Explanation: ${note}`
+          : `Approved as valid at ${documentConfidence.toFixed(1)}% document screening confidence.`
+      })
+    }
+  }
+
+  const approveDocument = () => {
+    if (approvalNote.trim().length < 15) return
+    recordApproval({ note: approvalNote.trim(), isOverride: true })
+    setIsApprovalOpen(false)
+    setApprovalNote('')
+  }
+
+  const acceptDocument = () => {
+    if (documentConfidence < 75) {
+      setIsApprovalOpen(true)
+      return
+    }
+    recordApproval({ note: '', isOverride: false })
+  }
+
+  const showDeclineAction = display.title === 'Session Flagged for Review' && result.status !== 'REJECTED'
+
   return (
     <UploadCard
       step={step}
       title={display.title}
       subtitle={display.subtitle}
       className="upload-card-wide"
+      headerAction={showDeclineAction ? (
+        <button className="decline-session-button" type="button" onClick={() => setIsDeclineOpen(true)}>
+          <img src="/icons/danger-file.svg" alt="" /> Decline session
+        </button>
+      ) : null}
       footer={<>
         <button className="upload-secondary" type="button" onClick={startAnother}>Start Another Session</button>
-        <button className="upload-primary" type="button" onClick={() => navigate('/verifications')}>View Session Details</button>
+        <button className="upload-primary" type="button" onClick={() => navigate(session.savedSessionId ? `/verifications/${session.savedSessionId}` : '/verifications')}>View Session Details</button>
+        <button className="human-verification-button" type="button" onClick={moveToHumanVerification} disabled={result.status === 'REJECTED'}><UserRoundCheck size={17} /> Move to Human Verification</button>
+        <button className="accept-document-button" type="button" onClick={acceptDocument} disabled={result.status === 'REJECTED'}><Check size={17} /> Accept as Valid</button>
       </>}
     >
       <div className="face-result-layout">
@@ -204,21 +295,16 @@ function CompleteStep({ step }) {
         </section>
 
         <section className="match-analysis-panel">
-          <div className="match-analysis-actions">
-            <button className="decline-session-button" type="button" onClick={() => setIsDeclineOpen(true)} disabled={result.status === 'REJECTED'}>
-              <ShieldX size={16} /> {result.status === 'REJECTED' ? 'Session declined' : 'Decline session'}
-            </button>
-          </div>
           <div className="match-score-head">
             <div>
-              <span>Face Match Confidence</span>
-              <strong>{score.toFixed(1)}<small>/100</small></strong>
+              <span>Document Screening Confidence</span>
+              <strong>{documentConfidence.toFixed(1)}<small>/100</small></strong>
             </div>
-            <em className={`match-badge ${scoreMeta.tone}`}>{scoreMeta.label}</em>
+            <em className={`match-badge ${documentConfidenceState.tone}`}>{documentConfidenceState.label}</em>
           </div>
           <div className="confidence-ruler" aria-hidden="true">
             {Array.from({ length: 36 }).map((_, index) => (
-              <i className={index < Math.round((score / 100) * 36) ? 'active' : ''} key={index} />
+              <i className={`${index < Math.round((documentConfidence / 100) * 36) ? 'active' : ''} ${documentConfidenceState.tone}`} key={index} />
             ))}
           </div>
           <div className="face-observation-list">
@@ -240,6 +326,7 @@ function CompleteStep({ step }) {
         <div><span>Subject</span><strong>{fields.name ? maskName(fields.name) : 'Not extracted'}</strong></div>
         <div><span>Document</span><strong>{flagEmoji(session.documentCountry?.code)} {session.documentCountry?.name} {typeLabel}</strong></div>
         <div><span>Document no.</span><strong>{fields.documentNumber ? maskDocumentNumber(fields.documentNumber) : 'Not extracted'}</strong></div>
+        <div><span>Face match</span><strong>{score.toFixed(1)}% ({scoreMeta.label})</strong></div>
         <div><span>Risk score</span><strong>{Number(result.riskScore).toFixed(3)} ({result.riskLevel})</strong></div>
         <div><span>Database</span><strong>{sentinel?.recorded ? sentinel.case_reference : sentinel?.enabled ? 'Not recorded' : 'Local session'}</strong></div>
       </div>
@@ -264,6 +351,22 @@ function CompleteStep({ step }) {
             </fieldset>
             <label className="decline-note" htmlFor="decline-note">Officer note<textarea id="decline-note" value={declineNote} onChange={event => setDeclineNote(event.target.value)} placeholder="Add a note for the session record" /></label>
             <footer><button type="button" className="decline-cancel" onClick={() => setIsDeclineOpen(false)}>Cancel</button><button type="button" className="decline-confirm" disabled={!declineReason} onClick={declineSession}><ShieldX size={16} /> Decline session</button></footer>
+          </section>
+        </div>
+      )}
+      {isApprovalOpen && (
+        <div className="decline-modal-backdrop" role="presentation" onMouseDown={() => setIsApprovalOpen(false)}>
+          <section className="approval-modal" role="dialog" aria-modal="true" aria-labelledby="approve-document-title" onMouseDown={event => event.stopPropagation()}>
+            <header>
+              <span>Approve document</span>
+              <button type="button" aria-label="Close approval dialog" onClick={() => setIsApprovalOpen(false)}><X size={18} /></button>
+            </header>
+            <div className="approval-modal-content">
+              <p>The document was marked as <strong>{documentConfidenceState.decision}</strong> at {documentConfidence.toFixed(1)}% screening confidence, yet you are passing it as valid.</p>
+              <label className="approval-note" htmlFor="approval-note">Please provide a detailed explanation for this decision<textarea id="approval-note" value={approvalNote} onChange={event => setApprovalNote(event.target.value)} placeholder="Explain why this document can be accepted as valid" autoFocus /></label>
+              <small className="approval-hint">A minimum of 15 characters is required for the audit record.</small>
+            </div>
+            <footer><button type="button" className="decline-cancel" onClick={() => setIsApprovalOpen(false)}>Cancel</button><button type="button" className="approve-confirm" disabled={approvalNote.trim().length < 15} onClick={approveDocument}><Check size={16} /> Approve document</button></footer>
           </section>
         </div>
       )}

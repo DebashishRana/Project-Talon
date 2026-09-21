@@ -446,3 +446,10 @@ html, body {
     max-width: 100%;
   }
 }
+
+.auth-login-error {
+  margin: -2px 0 2px;
+  color: #be123c;
+  font-size: 13px;
+  font-weight: 650;
+}

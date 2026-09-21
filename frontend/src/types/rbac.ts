@@ -46,6 +46,10 @@ export interface User {
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING'
   createdAt: string
   lastLoginAt?: string
+  passwordHash?: string
+  forcePasswordChange?: boolean
+  requireMfa?: boolean
+  sessionTimeoutMinutes?: number
 }
 
 export interface AuditEvent {

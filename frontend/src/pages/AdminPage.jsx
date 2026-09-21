@@ -1,32 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import api from '../utils/api'
 import './AdminPage.css'
 
 function AdminPage() {
-  const [password, setPassword] = useState('')
-  const [authenticated, setAuthenticated] = useState(false)
   const [files, setFiles] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('files')
-
-  const ADMIN_PASSWORD = 'admin123' // Change this in production
 
   const displayDocType = (rawType) => {
     if (!rawType) return 'Aadhaar Card'
     const normalized = String(rawType).trim().toLowerCase()
     if (normalized.startsWith('pan')) return 'Aadhaar Card'
     return rawType
-  }
-
-  const handleLogin = (e) => {
-    e.preventDefault()
-    if (password === ADMIN_PASSWORD) {
-      setAuthenticated(true)
-      loadData()
-    } else {
-      alert('Incorrect password')
-    }
   }
 
   const loadData = async () => {
@@ -45,6 +31,10 @@ function AdminPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
 
   const handleDelete = async (fileId) => {
     if (!window.confirm('Are you sure you want to delete this file?')) {
@@ -66,45 +56,11 @@ function AdminPage() {
     return new Date(dateString).toLocaleString()
   }
 
-  if (!authenticated) {
-    return (
-      <div className="admin-page">
-        <div className="login-container">
-          <div className="login-card">
-            <h2>Admin Login</h2>
-            <form onSubmit={handleLogin}>
-              <input
-                type="password"
-                placeholder="Enter admin password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="password-input"
-                required
-              />
-              <button type="submit" className="login-button">
-                Login
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="admin-page">
       <div className="admin-container">
         <div className="admin-header">
           <h1 className="page-title">Admin Panel</h1>
-          <button
-            className="logout-button"
-            onClick={() => {
-              setAuthenticated(false)
-              setPassword('')
-            }}
-          >
-            Logout
-          </button>
         </div>
 
         <div className="admin-tabs">

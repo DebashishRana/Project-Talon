@@ -1,16 +1,31 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useRBACStore } from '../store/rbacStore'
 import './LoginPage.css'
 
 function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showWhatsIncluded, setShowWhatsIncluded] = useState(false)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const authenticate = useRBACStore(state => state.authenticate)
 
-  const handleSubmit = event => {
+  const handleSubmit = async event => {
     event.preventDefault()
-    navigate('/dashboard')
+    setError('')
+    setSubmitting(true)
+    try {
+      const result = await authenticate(email, password)
+      if (!result.success) {
+        setError(result.message)
+        return
+      }
+      navigate('/dashboard', { replace: true })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -34,13 +49,14 @@ function LoginPage() {
             <form onSubmit={handleSubmit} className="auth-form">
               <div className="input-group">
                 <label className="input-label" htmlFor="login-email">Email</label>
-                <input id="login-email" type="email" placeholder="officer@agency.gov.in" value={email} onChange={event => setEmail(event.target.value)} className="auth-input" required />
+              <input id="login-email" type="email" autoComplete="username" placeholder="officer@ssb.gov.in" value={email} onChange={event => setEmail(event.target.value)} className="auth-input" required />
               </div>
               <div className="input-group">
                 <label className="input-label" htmlFor="login-password">Password</label>
-                <input id="login-password" type="password" placeholder="Password" value={password} onChange={event => setPassword(event.target.value)} className="auth-input" required />
-              </div>
-              <button type="submit" className="auth-submit-button login">Sign in</button>
+              <input id="login-password" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={event => setPassword(event.target.value)} className="auth-input" required />
+            </div>
+              {error && <p className="auth-login-error" role="alert">{error}</p>}
+              <button type="submit" className="auth-submit-button login" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button>
             </form>
             <p className="auth-legal">Authorized personnel only. Authentication attempts are recorded in the audit trail.</p>
           </div>

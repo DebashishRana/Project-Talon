@@ -1,0 +1,119 @@
+.upload-card-wide .upload-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.upload-card-header-action {
+  flex: 0 0 auto;
+  padding-top: .1rem;
+}
+
+.decline-session-button,
+.human-verification-button,
+.accept-document-button {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 700;
+  gap: .5rem;
+  justify-content: center;
+  min-height: 46px;
+  padding: .7rem 1rem;
+}
+
+.decline-session-button {
+  background: #fff;
+  border: 1px solid #fbb6c2;
+  color: #c81e45;
+}
+
+.decline-session-button:hover { background: #fff1f3; }
+.decline-session-button img { height: 19px; width: 19px; }
+
+.upload-card-wide .upload-card-footer {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: none;
+}
+
+.upload-card-wide .upload-card-footer > button { width: 100%; }
+
+.human-verification-button {
+  background: #fff4d6;
+  border: 1px solid #f3bd45;
+  color: #9a5b00;
+}
+
+.human-verification-button:hover { background: #ffedba; }
+
+.accept-document-button,
+.approve-confirm {
+  background: #07885d;
+  border: 1px solid #07885d;
+  color: #fff;
+}
+
+.accept-document-button:hover,
+.approve-confirm:hover:not(:disabled) { background: #056f4b; }
+
+.human-verification-button:disabled,
+.accept-document-button:disabled { cursor: not-allowed; opacity: .55; }
+
+.confidence-ruler i.active.medium { background: #e5a200; }
+.confidence-ruler i.active.critical { background: #db3156; }
+.confidence-ruler i.active.low { background: #0d9b6a; }
+
+.approval-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(16, 24, 40, .24);
+  max-width: 680px;
+  overflow: hidden;
+  width: min(680px, calc(100vw - 2rem));
+}
+
+.approval-modal header {
+  align-items: center;
+  border-bottom: 1px solid #e6eaf0;
+  display: flex;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+}
+
+.approval-modal header span { color: #263547; font-size: 1.35rem; font-weight: 750; }
+.approval-modal header button { background: transparent; border: 0; color: #475467; cursor: pointer; }
+.approval-modal-content { padding: 1.5rem; }
+.approval-modal-content > p { color: #475467; line-height: 1.55; margin: 0 0 1.25rem; }
+.approval-note { color: #344054; display: grid; font-weight: 700; gap: .55rem; }
+.approval-note textarea { border: 1px solid #cfd8e5; border-radius: 7px; font: inherit; min-height: 130px; padding: .8rem; resize: vertical; }
+.approval-note textarea:focus { border-color: #07885d; box-shadow: 0 0 0 3px rgba(7, 136, 93, .12); outline: none; }
+.approval-hint { color: #667085; display: block; margin-top: .5rem; }
+
+.approval-modal footer {
+  border-top: 1px solid #e6eaf0;
+  display: flex;
+  gap: .75rem;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem;
+}
+
+.approve-confirm { align-items: center; border-radius: 7px; cursor: pointer; display: inline-flex; font: inherit; font-weight: 700; gap: .45rem; padding: .7rem 1rem; }
+.approve-confirm:disabled { cursor: not-allowed; opacity: .55; }
+
+@media (max-width: 1040px) {
+  .upload-card-wide .upload-card-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .upload-card-wide .upload-card-header { flex-direction: column; }
+  .upload-card-header-action { width: 100%; }
+  .decline-session-button { width: 100%; }
+  .upload-card-wide .upload-card-footer { grid-template-columns: 1fr; }
+  .approval-modal footer { flex-direction: column-reverse; }
+  .approval-modal footer button { justify-content: center; width: 100%; }
+}

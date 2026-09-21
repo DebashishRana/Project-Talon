@@ -199,12 +199,29 @@ function buildSummary(records, previousRecords) {
   const totalRequests = records.length
   const successfulVerifications = records.filter(record => record.status === 'approved').length
   const manualReviewCases = records.filter(record => record.status === 'flagged' || record.status === 'pending').length
+  const rejectedDocuments = records.filter(record => record.status === 'rejected').length
   const pendingCount = records.filter(record => record.status === 'pending').length
   const flaggedCount = records.filter(record => record.status === 'flagged').length
   const approvalRate = totalRequests ? Math.round((successfulVerifications / totalRequests) * 1000) / 10 : 0
   const previousTotal = previousRecords.length
   const trendVsPreviousPeriod = previousTotal ? Math.round(((totalRequests - previousTotal) / previousTotal) * 1000) / 10 : totalRequests ? 100 : 0
-  return { totalRequests, successfulVerifications, manualReviewCases, approvalRate, pendingCount, flaggedCount, trendVsPreviousPeriod }
+  const percentChange = (current, previous) => previous ? Math.round(((current - previous) / previous) * 1000) / 10 : current ? 100 : 0
+  const previousApproved = previousRecords.filter(record => record.status === 'approved').length
+  const previousManualReview = previousRecords.filter(record => record.status === 'flagged' || record.status === 'pending').length
+  const previousRejected = previousRecords.filter(record => record.status === 'rejected').length
+  return {
+    totalRequests,
+    successfulVerifications,
+    manualReviewCases,
+    rejectedDocuments,
+    approvalRate,
+    pendingCount,
+    flaggedCount,
+    trendVsPreviousPeriod,
+    approvedTrend: percentChange(successfulVerifications, previousApproved),
+    manualReviewTrend: percentChange(manualReviewCases, previousManualReview),
+    rejectedTrend: percentChange(rejectedDocuments, previousRejected)
+  }
 }
 
 function bucketKey(date, range) {

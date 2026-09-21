@@ -4,7 +4,7 @@ import UploadRouter from './pages/upload/UploadRouter'
 import DashboardPage from './pages/DashboardPage'
 import ScannerPage from './pages/ScannerPage'
 import AdminPage from './pages/AdminPage'
-import AboutPage from './pages/AboutPage'
+import WorkspacePlaceholderPage from './pages/WorkspacePlaceholderPage'
 import LoginPage from './pages/LoginPage'
 import VerificationLogs from './pages/VerificationLogs'
 import VerificationDetail from './pages/VerificationDetail'
@@ -17,22 +17,25 @@ import EditUserPage from './pages/settings/EditUserPage'
 import RoleListPage from './pages/settings/RoleListPage'
 import CreateRolePage from './pages/settings/CreateRolePage'
 import EditRolePage from './pages/settings/EditRolePage'
+import { useRBACStore } from './store/rbacStore'
 import './App.css'
 import './styles/zoomBase.css'
 
 function AppContent() {
   const location = useLocation()
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const isAuthenticated = useRBACStore(state => state.isAuthenticated)
   const isAuthPage = location.pathname === '/' || location.pathname === '/auth' || location.pathname === '/login' || location.pathname === '/signup'
   const appRoutes = (
     <Routes>
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/upload/*" element={<UploadRouter />} />
-      <Route path="/verifications" element={<VerificationLogs />} />
-      <Route path="/verifications/:sessionId" element={<VerificationDetail />} />
-      <Route path="/scan" element={<ScannerPage />} />
-      <Route path="/admin" element={<AdminPage />} />
-      <Route path="/about" element={<AboutPage />} />
+      <Route path="/dashboard" element={<ProtectedRoute module="dashboard" action="read"><DashboardPage /></ProtectedRoute>} />
+      <Route path="/upload/*" element={<ProtectedRoute module="sessions" action="create"><UploadRouter /></ProtectedRoute>} />
+      <Route path="/verifications" element={<ProtectedRoute module="verification_logs" action="read"><VerificationLogs /></ProtectedRoute>} />
+      <Route path="/verifications/:sessionId" element={<ProtectedRoute module="verification_logs" action="read"><VerificationDetail /></ProtectedRoute>} />
+      <Route path="/scan" element={<ProtectedRoute module="devices" action="read"><ScannerPage /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute module="settings" action="read"><AdminPage /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute module="analytics" action="read"><WorkspacePlaceholderPage title="Analytics" description="Analytics dashboards will be available here soon." /></ProtectedRoute>} />
+      <Route path="/integrations" element={<ProtectedRoute module="integrations" action="read"><WorkspacePlaceholderPage title="Integrations" description="Integration connections and configuration will be available here soon." /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute module="settings" action="read"><GeneralSettingsPage /></ProtectedRoute>} />
       <Route path="/settings/users" element={<ProtectedRoute module="user_access" action="read"><UserListPage /></ProtectedRoute>} />
       <Route path="/settings/users/new" element={<ProtectedRoute module="user_access" action="create"><AddUserPage /></ProtectedRoute>} />
@@ -61,10 +64,12 @@ function AppContent() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<Navigate to="/login" replace />} />
           </Routes>
-        ) : (
+        ) : isAuthenticated ? (
           <AppShell isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(value => !value)}>
             {appRoutes}
           </AppShell>
+        ) : (
+          <Navigate to="/login" replace />
         )}
       </main>
     </div>

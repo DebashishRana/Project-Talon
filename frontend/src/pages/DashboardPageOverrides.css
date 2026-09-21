@@ -1,0 +1,31 @@
+/* Dashboard layout refinements. Loaded after DashboardPage.css. */
+.vd-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.vd-metric-card.amber .vd-metric-top b {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.vd-metric-card.red .vd-metric-top b {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.vd-metric-card.amber .vd-metric-bars i { background: #f5ad42; }
+.vd-metric-card.red .vd-metric-bars i { background: #f87171; }
+
+/* Give Latest Updates enough room while retaining a primary chart area. */
+.vd-dashboard-grid {
+  grid-template-columns: minmax(0, 1.65fr) minmax(430px, .9fr);
+}
+
+@media (max-width: 1180px) {
+  .vd-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vd-dashboard-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .vd-metric-grid { grid-template-columns: 1fr; }
+}

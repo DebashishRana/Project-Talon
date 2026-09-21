@@ -8,6 +8,7 @@ import { useRBACStore } from '../../store/rbacStore'
 import type { ModulePermissions } from '../../types/rbac'
 import { writeAuditEvent } from '../../utils/auditLogger'
 import { generateSecurePassword } from '../../utils/passwordGenerator'
+import { hashPassword, normalizeEmail } from '../../utils/authCredentials'
 import BottomActionBar from '../../components/settings/BottomActionBar'
 import GeneralInfoSection, { isGovernmentEmail } from '../../components/settings/GeneralInfoSection'
 import PermissionMatrix from '../../components/settings/PermissionMatrix'
@@ -42,6 +43,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
   const addRole = useRBACStore(state => state.addRole)
   const addUser = useRBACStore(state => state.addUser)
   const updateUser = useRBACStore(state => state.updateUser)
+  const users = useRBACStore(state => state.users)
   const existingUser = useRBACStore(state => edit && id ? state.getUserById(id) : undefined)
   const existingRole = roles.find(role => role.id === existingUser?.roleId)
   const [mode, setMode] = useState<'default' | 'custom'>('default')
@@ -90,6 +92,8 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
       parsedUser.error.issues.forEach(issue => { nextErrors[String(issue.path[0])] = issue.message })
     }
     if (showCheckpoint && !getValues().checkpointId) nextErrors.checkpointId = 'Checkpoint is required for Operative role.'
+    if (!edit && security.temporaryPassword.length < 8) nextErrors.temporaryPassword = 'Set a temporary password with at least 8 characters.'
+    if (!edit && users.some(user => normalizeEmail(user.email) === normalizeEmail(getValues().email))) nextErrors.email = 'An account already exists for this email address.'
     if (mode === 'custom') {
       const parsedRole = customRoleSchema.safeParse(customRole)
       if (!parsedRole.success) parsedRole.error.issues.forEach(issue => { nextErrors[`role_${String(issue.path[0])}`] = issue.message })
@@ -98,7 +102,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
     return Object.keys(nextErrors).length === 0
   }
 
-  const save = () => {
+  const save = async () => {
     if (!validate()) return
     let finalRoleId = roleId
     let finalRoleName = selectedRole?.name || 'Custom role'
@@ -127,13 +131,18 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
       writeAuditEvent({ type: roleChanged ? 'user.role_changed' : 'user.updated', targetId: existingUser.id, message: `Updated user ${formValues.fullName}` })
       setToast(`User updated - ${formValues.fullName} saved`)
     } else {
+      const passwordHash = await hashPassword(security.temporaryPassword)
       const user = addUser({
         fullName: formValues.fullName,
         email: formValues.email,
         roleId: finalRoleId,
         checkpointId: formValues.checkpointId || undefined,
         phone: formValues.phone || undefined,
-        status: 'PENDING'
+        status: 'ACTIVE',
+        passwordHash,
+        forcePasswordChange: security.forcePasswordChange,
+        requireMfa: security.requireMfa,
+        sessionTimeoutMinutes: Number(security.sessionTimeout)
       })
       writeAuditEvent({ type: 'user.created', targetId: user.id, message: `Created user ${user.fullName}`, metadata: { roleId: finalRoleId, security } })
       setToast(`User created - ${user.fullName} added as ${finalRoleName}`)
@@ -192,6 +201,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
           values={security}
           onChange={(field, value) => setSecurity(current => ({ ...current, [field]: value }))}
           onGenerate={() => setSecurity(current => ({ ...current, temporaryPassword: generateSecurePassword() }))}
+          error={errors.temporaryPassword}
         />
         <p className="audit-note"><Info size={14} /> This user creation will be logged in the audit trail. The user will receive an email with setup instructions.</p>
       </div>
