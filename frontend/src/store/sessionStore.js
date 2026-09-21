@@ -6,6 +6,14 @@ const listeners = new Set()
 const emptyState = { sessions: [] }
 let state = readState()
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key !== STORAGE_KEY && event.key !== null) return
+    state = readState()
+    listeners.forEach(listener => listener())
+  })
+}
+
 function readState() {
   if (typeof window === 'undefined') return emptyState
   try {
@@ -18,19 +26,20 @@ function readState() {
   }
 }
 
-function persist() {
+function persist(nextState = state) {
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions: state.sessions }))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions: nextState.sessions }))
   }
 }
 
 function emit() {
-  persist()
   listeners.forEach(listener => listener())
 }
 
 function setSessions(updater) {
-  state = { sessions: updater(state.sessions) }
+  const nextState = { sessions: updater(state.sessions) }
+  persist(nextState)
+  state = nextState
   emit()
 }
 

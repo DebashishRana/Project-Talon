@@ -12,6 +12,10 @@ function initials(name) {
   return String(name || 'Officer').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
 }
 
+function displayFaceReference(value) {
+  return String(value || '').replace(/^FACE-REF-/, '').slice(0, 8) || 'UNKNOWN'
+}
+
 function formatDate(iso) {
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(iso))
 }
@@ -48,7 +52,7 @@ function SessionRow({ session, selected, onSelect, onOpen, onContextMenu }) {
       </td>
       <td>
         <div className="vl-session-cell">
-          <span className="vl-hash">{String(session.faceHash || '').slice(0, 8)}...</span>
+          <span className="vl-hash">{displayFaceReference(session.faceHash)}...</span>
           <div>
             <strong>{session.id}</strong>
             <small>{session.subjectNameMasked} · {session.subjectNationality} · <b>{session.documentType.replaceAll('_', ' ')}</b></small>

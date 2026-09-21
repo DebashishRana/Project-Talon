@@ -10,7 +10,10 @@
   padding-top: .1rem;
 }
 
+.result-header-actions { display: flex; flex-wrap: wrap; gap: .65rem; justify-content: flex-end; }
+
 .decline-session-button,
+.csii-graph-button,
 .human-verification-button,
 .accept-document-button {
   align-items: center;
@@ -30,6 +33,25 @@
   border: 1px solid #fbb6c2;
   color: #c81e45;
 }
+
+.csii-graph-button {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  color: #1d4ed8;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 700;
+  gap: .5rem;
+  justify-content: center;
+  min-height: 46px;
+  padding: .7rem 1rem;
+}
+
+.csii-graph-button:hover { background: #dbeafe; }
+.csii-graph-button:disabled { cursor: wait; opacity: .7; }
 
 .decline-session-button:hover { background: #fff1f3; }
 .decline-session-button img { height: 19px; width: 19px; }
@@ -112,6 +134,8 @@
 @media (max-width: 640px) {
   .upload-card-wide .upload-card-header { flex-direction: column; }
   .upload-card-header-action { width: 100%; }
+  .result-header-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .csii-graph-button { width: 100%; }
   .decline-session-button { width: 100%; }
   .upload-card-wide .upload-card-footer { grid-template-columns: 1fr; }
   .approval-modal footer { flex-direction: column-reverse; }

@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, ShieldX, UserRoundCheck, X } from 'lucide-react'
+import { Check, Network, ShieldX, UserRoundCheck, X } from 'lucide-react'
 import { documentTypes } from '../../components/upload/DocumentTypeSelector'
 import { flagEmoji } from '../../components/upload/CountrySelector'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
 import { sessionStore } from '../../store/sessionStore'
-import { computeFaceHash } from '../../utils/faceHash'
 import { maskDob, maskDocumentNumber, maskName } from '../../utils/masking'
 import { subjectFields } from '../../utils/documentAnalysis'
+import { analyzeCsii } from '../../utils/csii'
 import DocumentEvidence from './DocumentEvidence'
+import CSIIGraphDialog from './CSIIGraphDialog'
 import { UploadCard } from './UploadRouter'
 import './CompleteStep.css'
 
@@ -17,6 +18,13 @@ function normalizeDocumentType(type) {
   if (type === 'AADHAAR_PAN') return 'AADHAAR'
   if (type === 'NATIONAL_ID') return 'PERMIT'
   return 'PASSPORT'
+}
+
+function createFaceEvidenceReference() {
+  const identifier = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID().replaceAll('-', '')
+    : `${Date.now()}${Math.random().toString(16).slice(2)}`
+  return `FACE-REF-${identifier.slice(0, 8).toUpperCase()}`
 }
 
 function scoreTone(score) {
@@ -41,6 +49,8 @@ function pipelineFromEvidence(session, result, score, providerLabel) {
   const classifierPass = Boolean(classifier.expected_document)
   const biometricStatus = result.faceVerification?.status === 'NOT_RUN' ? 'WARN' : score >= 90 ? 'PASS' : 'WARN'
 
+  const csii = result.csii
+  const csiiStatus = !csii ? 'PENDING' : csii.status === 'CLEAR' ? 'PASS' : 'WARN'
   return [
     {
       stage: 'CLASSIFICATION',
@@ -59,7 +69,12 @@ function pipelineFromEvidence(session, result, score, providerLabel) {
       detail: session.documentType === 'PASSPORT' ? (mrz?.detected ? `MRZ status: ${mrz.status}` : 'MRZ not found') : 'MRZ not required'
     },
     { stage: 'BIOMETRICS', status: biometricStatus, confidence: Number(score.toFixed(1)), detail: providerLabel },
-    { stage: 'CSII', status: 'SKIPPED', detail: 'Graph review available from session details' }
+    {
+      stage: 'CSII',
+      status: csiiStatus,
+      confidence: csii ? Number((Number(csii.signal_score || 0) * 100).toFixed(0)) : undefined,
+      detail: csii ? `${csii.anomalies?.length || 0} synthetic correlation alert(s) recorded` : 'Synthetic correlation graph is being prepared'
+    }
   ]
 }
 
@@ -88,11 +103,15 @@ function CompleteStep({ step }) {
   const navigate = useNavigate()
   const session = useNewSessionStore()
   const savedRef = useRef(false)
+  const csiiRunRef = useRef(false)
   const [isDeclineOpen, setIsDeclineOpen] = useState(false)
   const [isApprovalOpen, setIsApprovalOpen] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
   const [declineNote, setDeclineNote] = useState('')
   const [approvalNote, setApprovalNote] = useState('')
+  const [isCsiiOpen, setIsCsiiOpen] = useState(false)
+  const [csiiLoading, setCsiiLoading] = useState(false)
+  const [csiiError, setCsiiError] = useState('')
   const result = {
     riskLevel: 'MEDIUM',
     riskScore: 0.5,
@@ -115,6 +134,7 @@ function CompleteStep({ step }) {
     ? 'AWS Rekognition'
     : result.faceVerification?.provider === 'unavailable' ? 'Face service unavailable' : 'Face comparison'
   const sentinel = result.faceVerification?.sentinel
+  const csiiResult = result.csii || null
 
   const display = useMemo(() => {
     if (result.status === 'REJECTED') return { title: 'Session Declined', subtitle: 'The officer decision and reason were recorded.', tone: 'critical' }
@@ -132,7 +152,9 @@ function CompleteStep({ step }) {
       subjectNameMasked: maskName(fields.name),
       subjectNationality: fields.nationality || session.documentCountry?.iso3 || 'UNKNOWN',
       subjectDobMasked: fields.dob ? maskDob(fields.dob) : 'Not extracted',
-      faceHash: computeFaceHash(session.liveFaceBase64),
+      // This is an opaque session evidence reference, not a biometric face hash.
+      faceHash: createFaceEvidenceReference(),
+      faceReferenceType: 'SESSION_EVIDENCE_REFERENCE',
       documentType: normalizeDocumentType(session.documentType),
       documentNumberMasked: fields.documentNumber ? maskDocumentNumber(fields.documentNumber) : 'Not extracted',
       documentCountry: session.documentCountry?.iso3 || 'UNKNOWN',
@@ -150,8 +172,9 @@ function CompleteStep({ step }) {
       riskScore: result.riskScore,
       officerId: session.officerId,
       officerName: officerName.replace(/\b\w/g, char => char.toUpperCase()),
-      checkpointId: 'checkpoint-raxaul',
-      checkpointName: 'Raxaul',
+      checkpointId: session.checkpointId || '',
+      checkpointName: session.checkpointName || 'Unassigned checkpoint',
+      checkpointStateCode: session.checkpointStateCode || '',
       csiiStatus: 'PENDING',
       csiiAnomalyCount: result.anomalies.length,
       csiiAnomalies: result.anomalies,
@@ -159,6 +182,35 @@ function CompleteStep({ step }) {
     })
     newSessionStore.setSavedSessionId(saved.id)
   }, [documentFace, fields, liveFace, observations, providerLabel, result, score, sentinel, session])
+
+  const runCsii = async (scenario = csiiResult?.scenario || 'travel_alert') => {
+    setCsiiLoading(true)
+    setCsiiError('')
+    try {
+      const csii = await analyzeCsii({ fields, documentType: session.documentType, scenario })
+      const updatedResult = { ...result, csii }
+      newSessionStore.setProcessingResult(updatedResult)
+      if (session.savedSessionId) {
+        sessionStore.updateSession(session.savedSessionId, {
+          csiiResult: csii,
+          csiiStatus: csii.status === 'CLEAR' ? 'ON' : 'MONITORING',
+          csiiAnomalyCount: csii.anomalies?.length || 0,
+          csiiAnomalies: (csii.anomalies || []).map(item => item.type),
+          pipeline: pipelineFromEvidence(session, updatedResult, score, providerLabel),
+        })
+      }
+    } catch (error) {
+      setCsiiError(error.message || 'CSII analysis could not be completed.')
+    } finally {
+      setCsiiLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!session.savedSessionId || csiiResult || csiiLoading || csiiError || csiiRunRef.current) return
+    csiiRunRef.current = true
+    runCsii('travel_alert')
+  }, [session.savedSessionId])
 
   const startAnother = () => {
     newSessionStore.reset()
@@ -257,6 +309,10 @@ function CompleteStep({ step }) {
   }
 
   const showDeclineAction = display.title === 'Session Flagged for Review' && result.status !== 'REJECTED'
+  const openCsiiGraph = () => {
+    setIsCsiiOpen(true)
+    if (!csiiResult && !csiiLoading) runCsii('travel_alert')
+  }
 
   return (
     <UploadCard
@@ -264,11 +320,14 @@ function CompleteStep({ step }) {
       title={display.title}
       subtitle={display.subtitle}
       className="upload-card-wide"
-      headerAction={showDeclineAction ? (
-        <button className="decline-session-button" type="button" onClick={() => setIsDeclineOpen(true)}>
-          <img src="/icons/danger-file.svg" alt="" /> Decline session
+      headerAction={<div className="result-header-actions">
+        <button className="csii-graph-button" type="button" onClick={openCsiiGraph} disabled={csiiLoading}>
+          <Network size={17} /> {csiiLoading ? 'Building CSII graph' : 'Open CSII graph'}
         </button>
-      ) : null}
+        {showDeclineAction && <button className="decline-session-button" type="button" onClick={() => setIsDeclineOpen(true)}>
+          <img src="/icons/danger-file.svg" alt="" /> Decline session
+        </button>}
+      </div>}
       footer={<>
         <button className="upload-secondary" type="button" onClick={startAnother}>Start Another Session</button>
         <button className="upload-primary" type="button" onClick={() => navigate(session.savedSessionId ? `/verifications/${session.savedSessionId}` : '/verifications')}>View Session Details</button>
@@ -327,6 +386,7 @@ function CompleteStep({ step }) {
         <div><span>Document</span><strong>{flagEmoji(session.documentCountry?.code)} {session.documentCountry?.name} {typeLabel}</strong></div>
         <div><span>Document no.</span><strong>{fields.documentNumber ? maskDocumentNumber(fields.documentNumber) : 'Not extracted'}</strong></div>
         <div><span>Face match</span><strong>{score.toFixed(1)}% ({scoreMeta.label})</strong></div>
+        <div><span>CSII</span><strong>{csiiLoading ? 'Building graph' : csiiResult?.status === 'CLEAR' ? 'Clear' : csiiResult ? `${csiiResult.anomalies?.length || 0} alert(s)` : 'Pending'}</strong></div>
         <div><span>Risk score</span><strong>{Number(result.riskScore).toFixed(3)} ({result.riskLevel})</strong></div>
         <div><span>Database</span><strong>{sentinel?.recorded ? sentinel.case_reference : sentinel?.enabled ? 'Not recorded' : 'Local session'}</strong></div>
       </div>
@@ -370,6 +430,7 @@ function CompleteStep({ step }) {
           </section>
         </div>
       )}
+      {isCsiiOpen && <CSIIGraphDialog result={csiiResult} loading={csiiLoading} error={csiiError} onClose={() => setIsCsiiOpen(false)} onScenarioChange={runCsii} />}
     </UploadCard>
   )
 }

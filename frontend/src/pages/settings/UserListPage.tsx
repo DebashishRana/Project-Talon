@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { MoreHorizontal, Plus, UserX } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useRBACStore } from '../../store/rbacStore'
+import { useCheckpointStore } from '../../store/checkpointStore'
+import { resolveCheckpoint } from '../../data/checkpoints'
 import { writeAuditEvent } from '../../utils/auditLogger'
 import './SettingsPages.css'
 
@@ -19,16 +21,19 @@ export default function UserListPage() {
   const [status, setStatus] = useState('')
   const [checkpoint, setCheckpoint] = useState('')
   const selectAllRef = useRef<HTMLInputElement>(null)
+  const checkpointDirectory = useCheckpointStore(state => state.checkpoints)
+  const checkpointKey = (value?: string) => resolveCheckpoint(value, checkpointDirectory)?.id || value
+  const checkpointLabel = (value?: string) => resolveCheckpoint(value, checkpointDirectory)?.name || value || '-'
 
   const roleById = useMemo(() => new Map(roles.map(role => [role.id, role])), [roles])
-  const checkpoints = Array.from(new Set(users.map(user => user.checkpointId).filter(Boolean))) as string[]
+  const checkpoints = Array.from(new Set(users.map(user => checkpointKey(user.checkpointId)).filter(Boolean))) as string[]
 
   const filteredUsers = users.filter(user => {
     const text = `${user.fullName} ${user.email}`.toLowerCase()
     return (!query || text.includes(query.toLowerCase())) &&
       (!roleId || user.roleId === roleId) &&
       (!status || user.status === status) &&
-      (!checkpoint || user.checkpointId === checkpoint)
+      (!checkpoint || checkpointKey(user.checkpointId) === checkpoint)
   })
 
   const toggleStatus = (userId: string) => {
@@ -77,7 +82,7 @@ export default function UserListPage() {
           </select>
           <select value={checkpoint} onChange={event => setCheckpoint(event.target.value)}>
             <option value="">All checkpoints</option>
-            {checkpoints.map(item => <option value={item} key={item}>{item}</option>)}
+            {checkpoints.map(item => <option value={item} key={item}>{checkpointLabel(item)}</option>)}
           </select>
         </div>
 
@@ -103,7 +108,7 @@ export default function UserListPage() {
                   <td className="name-cell"><strong>{user.fullName}</strong><small>{user.id === currentUserId ? 'Current account' : user.id}</small></td>
                   <td>{user.email}</td>
                   <td>{role?.name || 'Unknown role'}</td>
-                  <td>{user.checkpointId || '-'}</td>
+                  <td>{checkpointLabel(user.checkpointId)}</td>
                   <td><span className={`status-pill ${user.status.toLowerCase()}`}>{user.status}</span></td>
                   <td>{user.lastLoginAt ? formatDistanceToNow(new Date(user.lastLoginAt), { addSuffix: true }) : '-'}</td>
                   <td>

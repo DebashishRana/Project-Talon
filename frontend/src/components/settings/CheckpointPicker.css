@@ -1,0 +1,14 @@
+.checkpoint-picker { min-width: 0; display: grid; align-content: start; gap: 8px; color: #334155; font-size: 14px; }
+.checkpoint-picker > label { font-weight: 600; }
+.checkpoint-picker b, .checkpoint-picker small, .checkpoint-create [role="alert"] { color: #be123c; }
+.checkpoint-picker-control { display: flex; gap: 8px; min-width: 0; }
+.checkpoint-picker-control select { min-width: 0; width: 100%; height: 42px; border: 1px solid #dbe3ee; border-radius: 5px; background: #fff; padding: 0 10px; color: #1f2937; font: inherit; }
+.checkpoint-picker-control > button { flex: 0 0 42px; height: 42px; display: grid; place-items: center; border: 1px solid #dbe3ee; border-radius: 5px; background: #fff; color: #2f6df6; }
+.checkpoint-create { display: grid; gap: 12px; padding: 14px 0 4px; min-width: 0; text-align: left; }
+.checkpoint-create label { display: grid; gap: 6px; color: #475569; font-size: 13px; font-weight: 600; min-width: 0; }
+.checkpoint-create input, .checkpoint-create select { width: 100%; min-width: 0; height: 38px; padding: 0 10px; border: 1px solid #dbe3ee; border-radius: 5px; background: #fff; color: #1f2937; font: inherit; }
+.checkpoint-create p { margin: 0; font-size: 12px; }
+.checkpoint-create-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.checkpoint-create-actions button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #dbe3ee; background: #fff; color: #475569; border-radius: 5px; padding: 9px 12px; font: inherit; font-size: 12px; }
+.checkpoint-create-actions .checkpoint-save { background: #2f6df6; border-color: #2f6df6; color: #fff; }
+.checkpoint-picker :focus-visible, .checkpoint-create :focus-visible { outline: 2px solid #2f6df6; outline-offset: 2px; }

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_SESSION_TOKEN: str = ""
+
+    # CSII derives opaque, domain-separated correlation tokens with this secret.
+    # The API token is used only as a local-demo fallback when it is unset.
+    CSII_HMAC_SECRET: str = os.getenv("CSII_HMAC_SECRET", "")
     
     # CORS
     ALLOWED_ORIGINS: list = [

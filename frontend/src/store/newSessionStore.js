@@ -7,6 +7,9 @@ const initialState = {
   officerId: null,
   officerEmail: '',
   officerVerifiedAt: null,
+  checkpointId: '',
+  checkpointName: '',
+  checkpointStateCode: '',
   rememberDevice: false,
   documentType: null,
   documentCountry: { code: 'IN', iso3: 'IND', name: 'India' },
@@ -75,10 +78,13 @@ export const newSessionStore = {
   getSnapshot() {
     return state
   },
-  setOfficer({ officerId, officerEmail, rememberDevice = false }) {
+  setOfficer({ officerId, officerEmail, rememberDevice = false, checkpoint }) {
     update({
       officerId,
       officerEmail,
+      checkpointId: checkpoint?.id || '',
+      checkpointName: checkpoint?.name || '',
+      checkpointStateCode: checkpoint?.stateCode || '',
       rememberDevice,
       officerVerifiedAt: new Date().toISOString()
     })

@@ -1,7 +1,6 @@
 import React from 'react'
 import { CheckCircle2 } from 'lucide-react'
-
-export const checkpoints = ['Raxaul', 'Jhulaghat', 'Haldwani', 'Bagdogra', 'Panitanki', 'Jogbani', 'Sonauli']
+import CheckpointPicker from './CheckpointPicker'
 
 interface GeneralInfoSectionProps {
   values: {
@@ -41,14 +40,7 @@ export default function GeneralInfoSection({ values, errors, showCheckpoint, onC
           {errors.email && <small>{errors.email}</small>}
         </label>
         {showCheckpoint && (
-          <label className="settings-field">
-            <span>Checkpoint <b>*</b></span>
-            <select value={values.checkpointId} onChange={event => onChange('checkpointId', event.target.value)}>
-              <option value="">Select checkpoint</option>
-              {checkpoints.map(checkpoint => <option value={checkpoint} key={checkpoint}>{checkpoint}</option>)}
-            </select>
-            {errors.checkpointId && <small>{errors.checkpointId}</small>}
-          </label>
+          <CheckpointPicker value={values.checkpointId} onChange={(value: string) => onChange('checkpointId', value)} error={errors.checkpointId} />
         )}
         <label className="settings-field">
           <span>Phone number</span>

@@ -34,6 +34,7 @@ from dashboard_client import publish_verification_event
 from azure_storage import get_azure_storage
 from integration.face_validator import extract_face_from_document, compare_document_face_with_live
 from integration import sentinel_db
+from integration.csii_service import analyze_demo as analyze_csii_demo
 
 
 LEGACY_DEV_TOKEN = "veriquickx-secret-token-change-in-productio"
@@ -168,6 +169,17 @@ class FaceVerificationRequest(BaseModel):
     document_filename: Optional[str] = "document.jpg"
     document_type: Optional[str] = None
     match_threshold: Optional[float] = 90.0
+
+
+class CSIIAnalysisRequest(BaseModel):
+    """Only identity text is accepted; image bytes are never used as a CSII key."""
+
+    name: str = ""
+    date_of_birth: str = ""
+    document_number: str = ""
+    document_type: str = "PASSPORT"
+    nationality: str = ""
+    scenario: str = "travel_alert"
 
 
 def _decode_base64_image(value: str, field_name: str) -> bytes:
@@ -439,6 +451,27 @@ async def compare_document_and_live_face(
         detail = _face_service_error_detail(error)
         print(f"[Face verification] {type(error).__name__}: {detail}")
         raise HTTPException(status_code=503, detail=detail)
+
+
+@app.post("/api/csii/analyze")
+async def analyze_csii(
+    request: CSIIAnalysisRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Return a clearly labelled synthetic CSII graph for the current demo session."""
+    if not _is_valid_token(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    secret = settings.CSII_HMAC_SECRET or settings.API_TOKEN
+    return analyze_csii_demo(
+        secret=secret,
+        name=request.name,
+        dob=request.date_of_birth,
+        document_number=request.document_number,
+        document_type=request.document_type,
+        nationality=request.nationality,
+        scenario=request.scenario,
+    )
 
 
 @app.get("/api/system-readiness")

@@ -29,7 +29,7 @@ function SearchInput({ value, onChange }) {
         ref={inputRef}
         value={draft}
         onChange={event => setDraft(event.target.value)}
-        placeholder="Search by session ID, masked name, face hash, or document number"
+        placeholder="Search by session ID, masked name, face reference, or document number"
       />
     </label>
   )

@@ -5,6 +5,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { z } from 'zod'
 import { blankPermissions } from '../../data/defaultRoles'
 import { useRBACStore } from '../../store/rbacStore'
+import { useCheckpointStore } from '../../store/checkpointStore'
+import { resolveCheckpoint } from '../../data/checkpoints'
 import type { ModulePermissions } from '../../types/rbac'
 import { writeAuditEvent } from '../../utils/auditLogger'
 import { generateSecurePassword } from '../../utils/passwordGenerator'
@@ -64,7 +66,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
 
   const values = getValues()
   const selectedRole = roles.find(role => role.id === roleId) || roles[0]
-  const showCheckpoint = mode === 'default' ? roleId === 'operative' : customRole.name.toLowerCase().includes('operative')
+  const showCheckpoint = mode === 'default' ? roleId === 'operative' || selectedRole?.dataScope === 'checkpoint' : customRole.name.toLowerCase().includes('operative')
   const effectivePermissions = useMemo(() => mode === 'default' ? (selectedRole?.permissions || blankPermissions()) : permissions, [mode, selectedRole, permissions])
 
   const updateField = (field: string, value: string) => {
@@ -91,7 +93,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
     if (!parsedUser.success) {
       parsedUser.error.issues.forEach(issue => { nextErrors[String(issue.path[0])] = issue.message })
     }
-    if (showCheckpoint && !getValues().checkpointId) nextErrors.checkpointId = 'Checkpoint is required for Operative role.'
+    if (showCheckpoint && !resolveCheckpoint(getValues().checkpointId, useCheckpointStore.getState().checkpoints)) nextErrors.checkpointId = 'Select a checkpoint from the directory.'
     if (!edit && security.temporaryPassword.length < 8) nextErrors.temporaryPassword = 'Set a temporary password with at least 8 characters.'
     if (!edit && users.some(user => normalizeEmail(user.email) === normalizeEmail(getValues().email))) nextErrors.email = 'An account already exists for this email address.'
     if (mode === 'custom') {
@@ -144,7 +146,17 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
         requireMfa: security.requireMfa,
         sessionTimeoutMinutes: Number(security.sessionTimeout)
       })
-      writeAuditEvent({ type: 'user.created', targetId: user.id, message: `Created user ${user.fullName}`, metadata: { roleId: finalRoleId, security } })
+      writeAuditEvent({
+        type: 'user.created',
+        targetId: user.id,
+        message: `Created user ${user.fullName}`,
+        metadata: {
+          roleId: finalRoleId,
+          forcePasswordChange: security.forcePasswordChange,
+          requireMfa: security.requireMfa,
+          sessionTimeout: security.sessionTimeout
+        }
+      })
       setToast(`User created - ${user.fullName} added as ${finalRoleName}`)
     }
     window.setTimeout(() => navigate('/settings/users'), 650)

@@ -64,6 +64,10 @@ export interface AuditEvent {
     | 'role.updated'
     | 'role.deleted'
     | 'password.reset'
+    | 'checkpoint.created'
+    | 'session.verified'
+    | 'session.flagged'
+    | 'session.rejected'
   actorId: string
   targetId?: string
   message: string

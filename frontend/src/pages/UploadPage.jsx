@@ -2,6 +2,9 @@ import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import { sessionStore } from '../store/sessionStore'
+import { useRBACStore } from '../store/rbacStore'
+import { useCheckpointStore } from '../store/checkpointStore'
+import { resolveCheckpoint } from '../data/checkpoints'
 import { maskDob, maskDocumentNumber, maskName } from '../utils/masking'
 import './UploadPage.css'
 
@@ -35,6 +38,9 @@ function riskFromResult(result) {
 }
 
 function sessionFromResult(result, index) {
+  const rbac = useRBACStore.getState()
+  const officer = rbac.users.find(user => user.id === rbac.currentUserId)
+  const checkpoint = resolveCheckpoint(officer?.checkpointId, useCheckpointStore.getState().checkpoints)
   const metadata = result.metadata || {}
   const name = metadata.full_name || metadata.name || metadata.subject_name || `Document ${index + 1}`
   const documentNumber = metadata.document_number || metadata.passport_number || metadata.id_number || result.filename || `DOC-${index + 1}`
@@ -61,10 +67,11 @@ function sessionFromResult(result, index) {
     status: risk.status,
     riskLevel: risk.level,
     riskScore: risk.score,
-    officerId: 'officer.sharma@ssb.gov.in',
-    officerName: 'A. Sharma',
-    checkpointId: 'checkpoint-raxaul',
-    checkpointName: 'Raxaul',
+    officerId: officer?.id || '',
+    officerName: officer?.fullName || 'Unknown officer',
+    checkpointId: checkpoint?.id || '',
+    checkpointName: checkpoint?.name || 'Unassigned checkpoint',
+    checkpointStateCode: checkpoint?.stateCode || '',
     csiiStatus: risk.anomalies.length ? 'MONITORING' : 'ON',
     csiiAnomalyCount: risk.anomalies.length,
     csiiAnomalies: risk.anomalies,

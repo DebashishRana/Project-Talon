@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useNavigate } from 'react-router-dom'
 import { newSessionStore } from '../../store/newSessionStore'
+import { useRBACStore } from '../../store/rbacStore'
+import { useCheckpointStore } from '../../store/checkpointStore'
+import { resolveCheckpoint } from '../../data/checkpoints'
 import { UploadCard } from './UploadRouter'
 
-function makeToken(email = 'pending@ssb.gov.in') {
+function makeToken(officerId = 'signed-out') {
   const expiresAt = Date.now() + 30000
   return JSON.stringify({
-    officerId: email,
+    officerId,
     sessionNonce: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
     expiresAt
   })
@@ -22,32 +25,67 @@ function AuthorizeStep({ step }) {
   const [showPassword, setShowPassword] = useState(false)
   const [token, setToken] = useState(() => makeToken())
   const [seconds, setSeconds] = useState(30)
+  const [authorizationError, setAuthorizationError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const currentUser = useRBACStore(state => state.users.find(user => user.id === state.currentUserId))
+  const authenticate = useRBACStore(state => state.authenticate)
+  const checkpoints = useCheckpointStore(state => state.checkpoints)
+  const assignedCheckpoint = resolveCheckpoint(currentUser?.checkpointId, checkpoints)
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       setSeconds(value => {
         if (value <= 1) {
-          setToken(makeToken(email || 'pending@ssb.gov.in'))
+          setToken(makeToken(currentUser?.id))
           return 30
         }
         return value - 1
       })
     }, 1000)
     return () => window.clearInterval(interval)
-  }, [email])
+  }, [currentUser?.id])
 
-  const credentialsValid = useMemo(() => {
-    return /@(ssb|mha)\.gov\.in$/i.test(email.trim()) && password.length >= 1
-  }, [email, password])
+  useEffect(() => {
+    if (!email && currentUser?.email) setEmail(currentUser.email)
+  }, [currentUser?.email, email])
 
-  const canContinue = tab === 'qr' || credentialsValid
+  const credentialsPresent = useMemo(() => Boolean(email.trim() && password), [email, password])
+  const currentAccountActive = currentUser?.status === 'ACTIVE'
+  const canContinue = tab === 'qr' ? currentAccountActive && Boolean(assignedCheckpoint) : credentialsPresent
 
-  const authorize = () => {
-    const officerId = tab === 'qr'
-      ? (email && /@(ssb|mha)\.gov\.in$/i.test(email) ? email : 'officer.sharma@ssb.gov.in')
-      : email.trim().toLowerCase()
-    newSessionStore.setOfficer({ officerId, officerEmail: officerId, rememberDevice: remember })
-    navigate('/upload/document-type')
+  const authorize = async () => {
+    setAuthorizationError('')
+    setSubmitting(true)
+    try {
+      let officer = currentUser
+      if (tab === 'password') {
+        const result = await authenticate(email, password)
+        if (!result.success) {
+          setAuthorizationError(result.message)
+          return
+        }
+        officer = result.user
+      }
+
+      if (!officer || officer.status !== 'ACTIVE') {
+        setAuthorizationError('Your active TALON account is required to start a screening session.')
+        return
+      }
+
+      if (!useRBACStore.getState().hasPermission(officer.id, 'sessions', 'create')) {
+        setAuthorizationError('This account cannot create screening sessions.')
+        return
+      }
+      const assigned = resolveCheckpoint(officer.checkpointId, useCheckpointStore.getState().checkpoints)
+      if (!assigned) {
+        setAuthorizationError(officer.checkpointId ? 'Your assigned checkpoint is not in the directory. Ask an administrator to update your assignment.' : 'This account does not have a designated checkpoint. Ask an administrator to assign one before starting a screening session.')
+        return
+      }
+      newSessionStore.setOfficer({ officerId: officer.id, officerEmail: officer.email, rememberDevice: remember, checkpoint: assigned })
+      navigate('/upload/document-type')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -55,7 +93,7 @@ function AuthorizeStep({ step }) {
       step={step}
       title="Officer Authorization"
       subtitle="Verify your identity to begin a screening session"
-      footer={<button className="upload-primary" type="button" disabled={!canContinue} onClick={authorize}>Authorize & Continue</button>}
+      footer={<button className="upload-primary" type="button" disabled={!canContinue || submitting} onClick={authorize}>{submitting ? 'Authorizing…' : 'Authorize & Continue'}</button>}
     >
       <div className="auth-tabs">
         <button className={tab === 'qr' ? 'active' : ''} type="button" onClick={() => setTab('qr')}>Authenticator QR</button>
@@ -63,10 +101,10 @@ function AuthorizeStep({ step }) {
       </div>
       {tab === 'qr' ? (
         <div className="qr-panel">
-          <p>Scan this code with your TALON Authenticator app to authorize this session</p>
+          <p>Use your signed-in TALON account to authorize this session.</p>
           <QRCodeSVG value={token} size={256} level="M" includeMargin />
           <strong>Expires in {seconds}s</strong>
-          <small>Session will be tied to your officer ID for audit purposes</small>
+          <small>{currentUser ? `Session will be tied to ${currentUser.fullName} for audit purposes` : 'Sign in with an active TALON account first.'}</small>
         </div>
       ) : (
         <div className="login-panel">
@@ -76,6 +114,15 @@ function AuthorizeStep({ step }) {
           <button className="forgot-link" type="button">Forgot password?</button>
         </div>
       )}
+      <div className="assigned-checkpoint-panel" aria-live="polite">
+        <span>Designated checkpoint</span>
+        {assignedCheckpoint ? (
+          <strong>{assignedCheckpoint.name}<small>{assignedCheckpoint.city}, {assignedCheckpoint.state}</small></strong>
+        ) : (
+          <strong className="missing">No checkpoint assigned<small>Update this officer profile in Settings before authorization.</small></strong>
+        )}
+      </div>
+      {authorizationError && <p className="upload-error" role="alert">{authorizationError}</p>}
       <p className="upload-note">ⓘ All authorization attempts are logged in the audit trail.</p>
     </UploadCard>
   )

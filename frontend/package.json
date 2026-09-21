@@ -6,13 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:analytics": "node --test src/services/analyticsService.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.6",
     "axios": "^1.6.2",
     "date-fns": "^4.4.0",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.47.0",
+    "maplibre-gl": "^6.10.0",
     "qrcode.react": "^3.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

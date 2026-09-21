@@ -9,8 +9,9 @@ import {
   Gauge,
   Lock,
   LogOut,
+  MapPinned,
+  Network,
   Plug,
-  Radar,
   ScanLine,
   Settings,
   ShieldCheck,
@@ -25,7 +26,7 @@ const COLLAPSE_KEY = 'talon_nav_collapsed_v1'
 
 function NavItem({ to, icon: Icon, label, end = false }) {
   return (
-    <NavLink className={({ isActive }) => `app-nav-link ${isActive ? 'active' : ''}`} to={to} end={end}>
+    <NavLink className={({ isActive }) => `app-nav-link ${isActive ? 'active' : ''}`} to={to} end={end} aria-label={label} title={label}>
       <Icon size={15} />
       <span>{label}</span>
     </NavLink>
@@ -48,6 +49,7 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
   const canCreateSessions = usePermission('sessions', 'create')
   const canReadLogs = usePermission('verification_logs', 'read')
   const canReadDevices = usePermission('devices', 'read')
+  const canReadCsii = usePermission('csii_graph', 'read')
   const canReadSettings = usePermission('settings', 'read')
   const canReadAnalytics = usePermission('analytics', 'read')
   const canReadIntegrations = usePermission('integrations', 'read')
@@ -102,7 +104,8 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
           <NavSection title="Verification">
             {canCreateSessions && <NavItem to="/upload/authorize" icon={ScanLine} label="New Verification" />}
             {canReadLogs && <NavItem to="/verifications" icon={FileText} label="Verification Logs" end />}
-            {canReadDevices && <NavItem to="/scan" icon={Radar} label="Scanner" />}
+            {canReadDevices && <NavItem to="/geopol" icon={MapPinned} label="Geopol" />}
+            {canReadCsii && <NavItem to="/csii" icon={Network} label="CSII" />}
           </NavSection>
 
           <NavSection title="Workspace">

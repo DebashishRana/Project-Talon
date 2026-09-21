@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import UploadRouter from './pages/upload/UploadRouter'
 import DashboardPage from './pages/DashboardPage'
-import ScannerPage from './pages/ScannerPage'
 import AdminPage from './pages/AdminPage'
-import WorkspacePlaceholderPage from './pages/WorkspacePlaceholderPage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import IntegrationsPage from './pages/IntegrationsPage'
+import GeoIntelPage from './pages/GeoIntelPage'
+import CSIIPage from './pages/CSIIPage'
 import LoginPage from './pages/LoginPage'
 import VerificationLogs from './pages/VerificationLogs'
 import VerificationDetail from './pages/VerificationDetail'
@@ -32,10 +34,12 @@ function AppContent() {
       <Route path="/upload/*" element={<ProtectedRoute module="sessions" action="create"><UploadRouter /></ProtectedRoute>} />
       <Route path="/verifications" element={<ProtectedRoute module="verification_logs" action="read"><VerificationLogs /></ProtectedRoute>} />
       <Route path="/verifications/:sessionId" element={<ProtectedRoute module="verification_logs" action="read"><VerificationDetail /></ProtectedRoute>} />
-      <Route path="/scan" element={<ProtectedRoute module="devices" action="read"><ScannerPage /></ProtectedRoute>} />
+      <Route path="/scan" element={<Navigate to="/geopol" replace />} />
+      <Route path="/geopol" element={<ProtectedRoute module="devices" action="read"><GeoIntelPage /></ProtectedRoute>} />
+      <Route path="/csii" element={<ProtectedRoute module="csii_graph" action="read"><CSIIPage /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute module="settings" action="read"><AdminPage /></ProtectedRoute>} />
-      <Route path="/analytics" element={<ProtectedRoute module="analytics" action="read"><WorkspacePlaceholderPage title="Analytics" description="Analytics dashboards will be available here soon." /></ProtectedRoute>} />
-      <Route path="/integrations" element={<ProtectedRoute module="integrations" action="read"><WorkspacePlaceholderPage title="Integrations" description="Integration connections and configuration will be available here soon." /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute module="analytics" action="read"><AnalyticsPage /></ProtectedRoute>} />
+      <Route path="/integrations" element={<ProtectedRoute module="integrations" action="read"><IntegrationsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute module="settings" action="read"><GeneralSettingsPage /></ProtectedRoute>} />
       <Route path="/settings/users" element={<ProtectedRoute module="user_access" action="read"><UserListPage /></ProtectedRoute>} />
       <Route path="/settings/users/new" element={<ProtectedRoute module="user_access" action="create"><AddUserPage /></ProtectedRoute>} />

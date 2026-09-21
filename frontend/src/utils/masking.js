@@ -6,13 +6,19 @@ export function maskName(fullName) {
 }
 
 export function maskDob(dob) {
-  const [year] = String(dob || '').split('-')
-  return `${year || '0000'}-**-**`
+  const value = String(dob || '').trim()
+  const iso = value.match(/^(\d{4})-\d{2}-\d{2}$/)
+  if (iso) return `${iso[1]}-**-**`
+  const mrz = value.match(/^(\d{2})(\d{2})(\d{2})$/)
+  if (mrz) return `**${mrz[1]}-**-**`
+  const year = value.match(/^(\d{4})/)
+  return `${year?.[1] || '****'}-**-**`
 }
 
 export function maskDocumentNumber(docNum) {
   const value = String(docNum || '')
-  if (value.length < 6) return value || '***'
+  if (!value) return '***'
+  if (value.length < 6) return value.length <= 2 ? '***' : `${value.slice(0, 1)}***${value.slice(-1)}`
   return `${value.slice(0, 3)}****${value.slice(-1)}`
 }
 

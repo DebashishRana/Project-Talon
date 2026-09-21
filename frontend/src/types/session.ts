@@ -33,7 +33,10 @@ export interface Session {
   subjectNameMasked: string;
   subjectNationality: string;
   subjectDobMasked: string;
+  // Legacy field name retained for persisted sessions. New records contain an
+  // opaque, non-biometric session evidence reference such as FACE-REF-ABC123.
   faceHash: string;
+  faceReferenceType?: 'SESSION_EVIDENCE_REFERENCE';
   documentType: 'PASSPORT' | 'VISA' | 'AADHAAR' | 'PAN' | 'DRIVING_LICENSE' | 'PERMIT';
   documentNumberMasked: string;
   documentCountry: string;
@@ -45,6 +48,7 @@ export interface Session {
   officerName: string;
   checkpointId: string;
   checkpointName: string;
+  checkpointStateCode?: string;
   csiiStatus: CSIIStatus;
   csiiAnomalyCount: number;
   csiiAnomalies: string[];
