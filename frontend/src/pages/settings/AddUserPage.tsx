@@ -33,7 +33,7 @@ const customRoleSchema = z.object({
 const initialSecurity = {
   temporaryPassword: '',
   sendEmail: true,
-  forcePasswordChange: true,
+  forcePasswordChange: false,
   requireMfa: false,
   sessionTimeout: '60'
 }
@@ -52,7 +52,12 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
   const [roleId, setRoleId] = useState(existingUser?.roleId || 'operative')
   const [customRole, setCustomRole] = useState({ name: '', description: '' })
   const [permissions, setPermissions] = useState<ModulePermissions[]>(existingRole?.permissions || blankPermissions())
-  const [security, setSecurity] = useState({ ...initialSecurity, requireMfa: roleId === 'super_admin', sessionTimeout: roleId === 'super_admin' ? '30' : '60' })
+  const [security, setSecurity] = useState(() => ({
+    ...initialSecurity,
+    temporaryPassword: edit ? '' : generateSecurePassword(),
+    requireMfa: roleId === 'super_admin',
+    sessionTimeout: roleId === 'super_admin' ? '30' : '60'
+  }))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [toast, setToast] = useState('')
   const { register, getValues, setValue } = useForm({
@@ -94,7 +99,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
       parsedUser.error.issues.forEach(issue => { nextErrors[String(issue.path[0])] = issue.message })
     }
     if (showCheckpoint && !resolveCheckpoint(getValues().checkpointId, useCheckpointStore.getState().checkpoints)) nextErrors.checkpointId = 'Select a checkpoint from the directory.'
-    if (!edit && security.temporaryPassword.length < 8) nextErrors.temporaryPassword = 'Set a temporary password with at least 8 characters.'
+    if (!edit && security.temporaryPassword.length < 8) nextErrors.temporaryPassword = 'A managed password could not be generated. Generate a new one and try again.'
     if (!edit && users.some(user => normalizeEmail(user.email) === normalizeEmail(getValues().email))) nextErrors.email = 'An account already exists for this email address.'
     if (mode === 'custom') {
       const parsedRole = customRoleSchema.safeParse(customRole)
@@ -123,15 +128,19 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
     const formValues = getValues()
     if (edit && existingUser) {
       const roleChanged = existingUser.roleId !== finalRoleId
+      const passwordPatch = security.temporaryPassword
+        ? { passwordHash: await hashPassword(security.temporaryPassword), forcePasswordChange: false }
+        : {}
       updateUser(existingUser.id, {
         fullName: formValues.fullName,
         email: formValues.email,
         roleId: finalRoleId,
         checkpointId: formValues.checkpointId || undefined,
-        phone: formValues.phone || undefined
+        phone: formValues.phone || undefined,
+        ...passwordPatch
       })
-      writeAuditEvent({ type: roleChanged ? 'user.role_changed' : 'user.updated', targetId: existingUser.id, message: `Updated user ${formValues.fullName}` })
-      setToast(`User updated - ${formValues.fullName} saved`)
+      writeAuditEvent({ type: passwordPatch.passwordHash ? 'password.reset' : (roleChanged ? 'user.role_changed' : 'user.updated'), targetId: existingUser.id, message: passwordPatch.passwordHash ? `Changed managed password for ${formValues.fullName}` : `Updated user ${formValues.fullName}` })
+      setToast(passwordPatch.passwordHash ? `Managed password changed for ${formValues.fullName}` : `User updated - ${formValues.fullName} saved`)
     } else {
       const passwordHash = await hashPassword(security.temporaryPassword)
       const user = addUser({
@@ -157,7 +166,17 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
           sessionTimeout: security.sessionTimeout
         }
       })
-      setToast(`User created - ${user.fullName} added as ${finalRoleName}`)
+      navigate('/settings/users', {
+        replace: true,
+        state: {
+          credential: {
+            fullName: user.fullName,
+            email: user.email,
+            password: security.temporaryPassword
+          }
+        }
+      })
+      return
     }
     window.setTimeout(() => navigate('/settings/users'), 650)
   }
@@ -211,6 +230,7 @@ export default function AddUserPage({ edit = false }: { edit?: boolean }) {
 
         <SecuritySection
           values={security}
+          isEdit={edit}
           onChange={(field, value) => setSecurity(current => ({ ...current, [field]: value }))}
           onGenerate={() => setSecurity(current => ({ ...current, temporaryPassword: generateSecurePassword() }))}
           error={errors.temporaryPassword}

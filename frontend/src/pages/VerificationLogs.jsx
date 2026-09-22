@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import BulkActionsBar from '../components/verification-logs/BulkActionsBar'
 import EmptyState from '../components/verification-logs/EmptyState'
 import FilterBar from '../components/verification-logs/FilterBar'
@@ -48,12 +48,14 @@ function compareValue(session, key) {
 
 function VerificationLogs() {
   const navigate = useNavigate()
+  const location = useLocation()
   const sessions = useSessionStore(state => state.sessions)
   const [filters, setFilters] = useState(emptyFilters)
   const [selectedIds, setSelectedIds] = useState([])
   const [sort, setSort] = useState({ key: 'CREATED_AT', direction: 'desc' })
   const [page, setPage] = useState(1)
   const [contextMenu, setContextMenu] = useState(null)
+  const [toast, setToast] = useState(location.state?.toast || '')
   const selectAllRef = useRef(null)
 
   const counts = sessionStore.getCounts()
@@ -94,18 +96,6 @@ function VerificationLogs() {
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [navigate, filters.searchQuery])
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      sessionStore.getSnapshot().sessions.forEach(session => {
-        if (!['PENDING', 'PROCESSING'].includes(session.status)) return
-        const age = Date.now() - new Date(session.createdAt).getTime()
-        if (session.status === 'PENDING' && age > 5000) sessionStore.updateSession(session.id, { status: 'PROCESSING' })
-        if (session.status === 'PROCESSING' && age > 15000) sessionStore.updateSession(session.id, { status: 'VERIFIED', riskLevel: 'LOW', riskScore: Math.min(session.riskScore, 0.18) })
-      })
-    }, 5000)
-    return () => window.clearInterval(interval)
-  }, [])
 
   const resetFilters = () => setFilters(emptyFilters)
 
@@ -153,6 +143,7 @@ function VerificationLogs() {
 
   return (
     <div className="verification-logs-page" onClick={() => setContextMenu(null)}>
+      {toast && <div className="vl-toast" role="status">{toast}<button type="button" onClick={() => setToast('')} aria-label="Dismiss">×</button></div>}
       <header className="vl-header">
         <div>
           <h1>Verifications</h1>

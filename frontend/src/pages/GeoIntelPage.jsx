@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { AlertTriangle, ChevronRight, Clock3, Layers, LocateFixed, MapPinned, Route, ShieldCheck } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { GEOPOL_CHECKPOINTS, GEOPOL_METRICS, GEOPOL_TRAILS, checkpointsToFeatureCollection, trailToFeatureCollection } from '../data/geopolDemoData'
+import { useSessionStore } from '../store/sessionStore'
 import './GeoIntelPage.css'
 
 const indiaBounds = [[66.2, 6.4], [99.6, 37.8]]
@@ -32,6 +33,9 @@ function riskClass(value) {
 }
 
 export default function GeoIntelPage() {
+  const [searchParams] = useSearchParams()
+  const identityId = searchParams.get('identity')
+  const linkedSession = useSessionStore(state => state.sessions.find(item => item.id === identityId))
   const mapRef = useRef(null)
   const containerRef = useRef(null)
   const [metric, setMetric] = useState('risk')
@@ -163,6 +167,14 @@ export default function GeoIntelPage() {
       <div><span className="geopol-kicker"><MapPinned size={15} /> Geospatial intelligence</span><h1>Geopol checkpoint map</h1><p>India checkpoint activity, risk heatmaps, and synthetic subject travel trails for operational review.</p></div>
       <div className="geopol-score"><span>{activeMetric.label}</span><strong>{totals[metric]}</strong><small>{activeMetric.description}</small></div>
     </header>
+    {identityId && <section className="geopol-session-context">
+      <AlertTriangle size={16} />
+      <div>
+        <strong>{linkedSession ? `Review context: ${linkedSession.id}` : `Review context: ${identityId}`}</strong>
+        <p>{linkedSession ? `${linkedSession.subjectNameMasked} · ${linkedSession.documentNumberMasked} · ${linkedSession.checkpointName}` : 'This opened from a verification session, but the local session record was not found.'} Synthetic trails are not live movement history.</p>
+      </div>
+      {linkedSession && <Link to={`/verifications/${encodeURIComponent(linkedSession.id)}`}>Back to verification</Link>}
+    </section>}
 
     <section className="geopol-toolbar" aria-label="Map controls">
       <div className="geopol-segments" role="group" aria-label="Heatmap metric">

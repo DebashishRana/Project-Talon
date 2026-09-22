@@ -10,6 +10,7 @@ import CSIIPage from './pages/CSIIPage'
 import LoginPage from './pages/LoginPage'
 import VerificationLogs from './pages/VerificationLogs'
 import VerificationDetail from './pages/VerificationDetail'
+import FinalVerificationPage from './pages/FinalVerificationPage'
 import AppShell from './components/AppShell'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import GeneralSettingsPage from './pages/settings/GeneralSettingsPage'
@@ -33,7 +34,8 @@ function AppContent() {
       <Route path="/dashboard" element={<ProtectedRoute module="dashboard" action="read"><DashboardPage /></ProtectedRoute>} />
       <Route path="/upload/*" element={<ProtectedRoute module="sessions" action="create"><UploadRouter /></ProtectedRoute>} />
       <Route path="/verifications" element={<ProtectedRoute module="verification_logs" action="read"><VerificationLogs /></ProtectedRoute>} />
-      <Route path="/verifications/:sessionId" element={<ProtectedRoute module="verification_logs" action="read"><VerificationDetail /></ProtectedRoute>} />
+      <Route path="/verifications/:sessionId" element={<ProtectedRoute module="verification_logs" action="read"><FinalVerificationPage /></ProtectedRoute>} />
+      <Route path="/verifications/:sessionId/details" element={<ProtectedRoute module="verification_logs" action="read"><VerificationDetail /></ProtectedRoute>} />
       <Route path="/scan" element={<Navigate to="/geopol" replace />} />
       <Route path="/geopol" element={<ProtectedRoute module="devices" action="read"><GeoIntelPage /></ProtectedRoute>} />
       <Route path="/csii" element={<ProtectedRoute module="csii_graph" action="read"><CSIIPage /></ProtectedRoute>} />

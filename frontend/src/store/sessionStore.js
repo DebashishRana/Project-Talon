@@ -1,6 +1,13 @@
 import { useSyncExternalStore } from 'react'
 
 const STORAGE_KEY = 'talon_sessions_v1'
+const MAX_PERSISTED_SESSIONS = 50
+const MEDIA_FIELDS = new Set([
+  'documentFrontBase64',
+  'documentBackBase64',
+  'documentFaceBase64',
+  'liveFaceBase64'
+])
 const listeners = new Set()
 
 const emptyState = { sessions: [] }
@@ -27,8 +34,16 @@ function readState() {
 }
 
 function persist(nextState = state) {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions: nextState.sessions }))
+  if (typeof window === 'undefined') return
+  const sessions = nextState.sessions
+    .slice(0, MAX_PERSISTED_SESSIONS)
+    .map(session => Object.fromEntries(
+      Object.entries(session).filter(([key]) => !MEDIA_FIELDS.has(key))
+    ))
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions }))
+  } catch {
+    // The live state remains usable when browser storage is unavailable or full.
   }
 }
 

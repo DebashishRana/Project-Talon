@@ -1,11 +1,13 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { MoreHorizontal, Plus, UserX } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useRBACStore } from '../../store/rbacStore'
 import { useCheckpointStore } from '../../store/checkpointStore'
 import { resolveCheckpoint } from '../../data/checkpoints'
 import { writeAuditEvent } from '../../utils/auditLogger'
+import { generateSecurePassword } from '../../utils/passwordGenerator'
+import { hashPassword } from '../../utils/authCredentials'
 import './SettingsPages.css'
 
 const statuses = ['ACTIVE', 'SUSPENDED', 'PENDING']
@@ -20,6 +22,8 @@ export default function UserListPage() {
   const [roleId, setRoleId] = useState('')
   const [status, setStatus] = useState('')
   const [checkpoint, setCheckpoint] = useState('')
+  const location = useLocation()
+  const [credentialNotice, setCredentialNotice] = useState<{ fullName: string; email: string; password: string } | null>(() => location.state?.credential || null)
   const selectAllRef = useRef<HTMLInputElement>(null)
   const checkpointDirectory = useCheckpointStore(state => state.checkpoints)
   const checkpointKey = (value?: string) => resolveCheckpoint(value, checkpointDirectory)?.id || value
@@ -55,6 +59,15 @@ export default function UserListPage() {
     writeAuditEvent({ type: 'user.deleted', targetId: userId, message: `Deleted user ${user.fullName}` })
   }
 
+  const resetPassword = async (userId: string) => {
+    const user = users.find(item => item.id === userId)
+    if (!user) return
+    const password = generateSecurePassword()
+    updateUser(userId, { passwordHash: await hashPassword(password), forcePasswordChange: false })
+    writeAuditEvent({ type: 'password.reset', targetId: userId, message: `Changed managed password for ${user.fullName}` })
+    setCredentialNotice({ fullName: user.fullName, email: user.email, password })
+  }
+
   return (
     <div className="settings-page">
       <div className="settings-shell">
@@ -69,6 +82,18 @@ export default function UserListPage() {
             <Link className="secondary-button" to="/settings/roles">Manage roles</Link>
           </div>
         </header>
+
+        {credentialNotice && (
+          <section className="credential-notice" role="status">
+            <div>
+              <strong>Managed credentials ready</strong>
+              <p>Share this password securely with {credentialNotice.fullName}. It is stored for this account and can only be replaced by an administrator.</p>
+              <dl><div><dt>Email</dt><dd>{credentialNotice.email}</dd></div><div><dt>Password</dt><dd>{credentialNotice.password}</dd></div></dl>
+            </div>
+            <button type="button" onClick={() => navigator.clipboard?.writeText(credentialNotice.password)}>Copy password</button>
+            <button type="button" className="credential-dismiss" onClick={() => setCredentialNotice(null)} aria-label="Dismiss credential notice">Dismiss</button>
+          </section>
+        )}
 
         <div className="filter-bar">
           <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name or email" />
@@ -116,7 +141,7 @@ export default function UserListPage() {
                       <summary><MoreHorizontal size={18} /></summary>
                       <div>
                         <Link to={`/settings/users/${user.id}`}>Edit user</Link>
-                        <button type="button" onClick={() => writeAuditEvent({ type: 'password.reset', targetId: user.id, message: `Reset password for ${user.fullName}` })}>Reset password</button>
+                        <button type="button" onClick={() => resetPassword(user.id)}>Change managed password</button>
                         <button type="button" onClick={() => toggleStatus(user.id)}>{user.status === 'SUSPENDED' ? 'Activate' : 'Suspend'}</button>
                         <button type="button" onClick={() => writeAuditEvent({ type: 'user.updated', targetId: user.id, message: `Viewed audit trail for ${user.fullName}` })}>View audit trail</button>
                         <button className="danger" type="button" disabled={user.id === currentUserId} onClick={() => removeUser(user.id)}>Delete</button>

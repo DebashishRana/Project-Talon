@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "test:analytics": "node --test src/services/analyticsService.test.js",
+    "test:verification": "node --test src/services/sessionVerificationModel.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
