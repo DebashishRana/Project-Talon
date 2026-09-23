@@ -20,6 +20,7 @@ import EditUserPage from './pages/settings/EditUserPage'
 import RoleListPage from './pages/settings/RoleListPage'
 import CreateRolePage from './pages/settings/CreateRolePage'
 import EditRolePage from './pages/settings/EditRolePage'
+import AskTalonPage from './pages/AskTalonPage'
 import { useRBACStore } from './store/rbacStore'
 import './App.css'
 import './styles/zoomBase.css'
@@ -32,6 +33,7 @@ function AppContent() {
   const appRoutes = (
     <Routes>
       <Route path="/dashboard" element={<ProtectedRoute module="dashboard" action="read"><DashboardPage /></ProtectedRoute>} />
+      <Route path="/ask-talon" element={<ProtectedRoute module="dashboard" action="read"><AskTalonPage /></ProtectedRoute>} />
       <Route path="/upload/*" element={<ProtectedRoute module="sessions" action="create"><UploadRouter /></ProtectedRoute>} />
       <Route path="/verifications" element={<ProtectedRoute module="verification_logs" action="read"><VerificationLogs /></ProtectedRoute>} />
       <Route path="/verifications/:sessionId" element={<ProtectedRoute module="verification_logs" action="read"><FinalVerificationPage /></ProtectedRoute>} />

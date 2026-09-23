@@ -7,7 +7,7 @@ const integrations = [
     name: 'Airports Authority of India',
     code: 'AAI',
     logo: '/icons/integrations/airport.png',
-    description: 'Supports airport and checkpoint information checks for travel screening operations.',
+    description: 'Retrieve airport and checkpoint information checks for travel screening operations for CSII and Geopol Analytics.',
     connected: false
   },
   {
@@ -15,7 +15,7 @@ const integrations = [
     name: 'UIDAI Aadhaar',
     code: 'UID',
     logo: '/icons/integrations/uidai.avif',
-    description: 'Will verify Aadhaar identity details and biometric verification responses through UIDAI.',
+    description: 'Retrieve aadhar detials and biometric details of iris and thumbprint for identity verification and authentication recommended for high-risk scenarios.',
     connected: false
   },
   {
@@ -23,7 +23,7 @@ const integrations = [
     name: 'DigiLocker',
     code: 'DL',
     logo: '/icons/integrations/digilocker.png',
-    description: 'Will retrieve consented, issuer-verified identity and travel documents from DigiLocker.',
+    description: 'Will retrieve consented, issuer-verified identity and travel documents from DigiLocker used to cross verify idenitity safely with least persmissions.',
     connected: false
   },
   {
@@ -31,7 +31,7 @@ const integrations = [
     name: 'NATGRID',
     code: 'NG',
     logo: '/icons/integrations/natgrid.png',
-    description: 'Will support authorized intelligence and watchlist checks for higher-risk screening cases.',
+    description: 'Retrieve national-level identity and biometric data for comprehensive verification across various databases recommended to be enabled across sensitive hotspots only.',
     connected: false
   },
   {
@@ -39,7 +39,7 @@ const integrations = [
     name: 'Passport Authority Records',
     code: 'PA',
     logo: '/icons/integrations/passport.png',
-    description: 'Will validate passport identity, document status, and expiry information against official records.',
+    description: 'Retrieve and validate passport identity, document status, and expiry information against official records.',
     connected: false
   }
 ]

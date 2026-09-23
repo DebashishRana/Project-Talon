@@ -1,6 +1,6 @@
 export const GEOPOL_METRICS = [
   { id: 'activity', label: 'Verification volume', description: 'Total verification sessions processed at each checkpoint.' },
-  { id: 'risk', label: 'High-risk density', description: 'Sessions where review, rejection, or strong anomaly signals were produced.' },
+  { id: 'risk', label: 'Suspicious sessions', description: 'Sessions requiring review because suspicious signals were produced.' },
   { id: 'face', label: 'Face mismatch density', description: 'Live-to-document face comparisons below review threshold.' },
   { id: 'csii', label: 'CSII anomaly density', description: 'Synthetic cross-session identity intelligence alerts.' }
 ]

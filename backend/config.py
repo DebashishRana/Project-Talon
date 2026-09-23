@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # API Security
     API_TOKEN: str = os.getenv("API_TOKEN", "veriquickx-secret-token-change-in-production")
 
+    # Sarvam chat API. The key is intentionally backend-only.
+    SARVAM_API_KEY: str = os.getenv("SARVAM_API_KEY", "")
+    SARVAM_MODEL: str = os.getenv("SARVAM_MODEL", "sarvam-m")
+    SARVAM_API_URL: str = os.getenv("SARVAM_API_URL", "https://api.sarvam.ai/v1/chat/completions")
+
     # Local document-processing executables.  Their values are read from the
     # backend .env, so they do not need to be added to a Windows-wide PATH.
     POPPLER_PATH: str = ""

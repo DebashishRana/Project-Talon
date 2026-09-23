@@ -51,3 +51,12 @@ api.interceptors.response.use(
 export default api
 export { API_TOKEN, API_BASE_URL }
 
+export async function askTalon(message, history, userName) {
+  const response = await api.post('/api/chat', {
+    message,
+    history,
+    user_name: userName
+  })
+  return response.data
+}
+

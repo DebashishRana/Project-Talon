@@ -19,6 +19,8 @@ import uuid
 import json
 import sqlite3
 import tempfile
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 import qrcode
@@ -180,6 +182,17 @@ class CSIIAnalysisRequest(BaseModel):
     document_type: str = "PASSPORT"
     nationality: str = ""
     scenario: str = "travel_alert"
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: List[ChatMessage] = []
+    user_name: str = "Authorized user"
 
 
 def _decode_base64_image(value: str, field_name: str) -> bytes:
@@ -367,6 +380,52 @@ async def process_documents(
             results.append({"success": False, "filename": filename, "error": str(error)})
 
     return {"results": results}
+
+
+@app.post("/api/chat")
+async def chat_with_talon(
+    request: ChatRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """Send a bounded Talon conversation to the Sarvam chat API."""
+    if not _is_valid_token(credentials.credentials):
+        raise HTTPException(status_code=401, detail="Invalid token")
+    if not settings.SARVAM_API_KEY:
+        raise HTTPException(status_code=503, detail="Sarvam is not configured. Set SARVAM_API_KEY in backend/.env.")
+
+    prompt_path = Path(__file__).with_name("ai_prompt.md")
+    system_prompt = prompt_path.read_text(encoding="utf-8")
+    messages = [{"role": "system", "content": system_prompt}]
+    for item in request.history[-8:]:
+        if item.role in {"user", "assistant"} and item.content.strip():
+            messages.append({"role": item.role, "content": item.content[:2000]})
+    messages.append({"role": "user", "content": f"Operator: {request.user_name}\nRequest: {request.message[:2000]}"})
+
+    payload = json.dumps({
+        "model": settings.SARVAM_MODEL,
+        "messages": messages,
+        "temperature": 0.2,
+        "max_tokens": 320,
+    }).encode("utf-8")
+    endpoint = settings.SARVAM_API_URL
+    http_request = urllib.request.Request(
+        endpoint,
+        data=payload,
+        headers={"Authorization": f"Bearer {settings.SARVAM_API_KEY}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(http_request, timeout=90) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        raise HTTPException(status_code=502, detail="Sarvam could not answer this request.")
+    except (urllib.error.URLError, TimeoutError):
+        raise HTTPException(status_code=502, detail="Sarvam is unreachable right now.")
+
+    answer = result.get("choices", [{}])[0].get("message", {}).get("content", "") if isinstance(result, dict) else ""
+    if not answer:
+        raise HTTPException(status_code=502, detail="Sarvam returned an empty response.")
+    return {"answer": answer.strip(), "model": settings.SARVAM_MODEL}
 
 
 @app.post("/api/face-verification/compare")

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
+  Bot,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -99,6 +100,7 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
         <nav className="app-nav">
           <NavSection title="Overview">
             {canReadDashboard && <NavItem to="/dashboard" icon={Gauge} label="Dashboard" />}
+            <NavItem to="/ask-talon" icon={Bot} label="Ask Talon" />
           </NavSection>
 
           <NavSection title="Verification">
