@@ -3,7 +3,7 @@ import React, { useMemo } from 'react'
 const statuses = ['PENDING', 'PROCESSING', 'VERIFIED', 'FLAGGED', 'MANUAL_REVIEW', 'REJECTED', 'CANCELLED']
 const risks = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const csiiStatuses = ['OFF', 'ON', 'MONITORING']
-const documentTypes = ['PASSPORT', 'VISA', 'AADHAAR', 'PAN', 'DRIVING_LICENSE', 'PERMIT']
+const documentTypes = ['PASSPORT', 'VISA', 'AADHAAR', 'PAN', 'DRIVING_LICENSE', 'NATIONAL_PERMIT', 'PERMIT']
 
 function title(value) {
   return String(value).replaceAll('_', ' ')

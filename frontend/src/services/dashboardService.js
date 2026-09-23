@@ -13,6 +13,7 @@ const TYPE_LABELS = {
   AADHAAR: 'Aadhaar',
   PAN: 'PAN',
   DRIVING_LICENSE: 'Driving License',
+  NATIONAL_PERMIT: 'National Permit',
   PERMIT: 'Permit'
 }
 
@@ -106,7 +107,7 @@ function mapSessionToRecord(session) {
     evidence: {
       capturedSelfie: session.liveFaceBase64 || null,
       referenceImage: session.documentFaceBase64 || null,
-      documentImage: session.documentImageBase64 || null
+      documentImage: session.documentFrontBase64 || null
     },
     eventHistory: [
       { id: `${session.id}-submitted`, eventType: 'Verification submitted', timestamp: session.createdAt, status: 'pending' },

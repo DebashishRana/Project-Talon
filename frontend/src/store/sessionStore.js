@@ -1,17 +1,29 @@
 import { useSyncExternalStore } from 'react'
+import { clearSessionMedia, deleteSessionMedia, loadSessionMedia, MEDIA_FIELDS, saveSessionMedia } from '../utils/sessionMediaStore'
 
 const STORAGE_KEY = 'talon_sessions_v1'
 const MAX_PERSISTED_SESSIONS = 50
-const MEDIA_FIELDS = new Set([
-  'documentFrontBase64',
-  'documentBackBase64',
-  'documentFaceBase64',
-  'liveFaceBase64'
-])
+const MEDIA_FIELD_SET = new Set(MEDIA_FIELDS)
 const listeners = new Set()
 
 const emptyState = { sessions: [] }
 let state = readState()
+
+function hydrateMedia() {
+  if (!state.sessions.length) return
+  Promise.all(state.sessions.map(async session => ({
+    id: session.id,
+    media: await loadSessionMedia(session.id)
+  }))).then(entries => {
+    const mediaById = new Map(entries.map(entry => [entry.id, entry.media]))
+    const hydrated = state.sessions.map(session => ({ ...session, ...(mediaById.get(session.id) || {}) }))
+    if (JSON.stringify(hydrated) === JSON.stringify(state.sessions)) return
+    state = { sessions: hydrated }
+    emit()
+  })
+}
+
+hydrateMedia()
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', event => {
@@ -38,7 +50,7 @@ function persist(nextState = state) {
   const sessions = nextState.sessions
     .slice(0, MAX_PERSISTED_SESSIONS)
     .map(session => Object.fromEntries(
-      Object.entries(session).filter(([key]) => !MEDIA_FIELDS.has(key))
+      Object.entries(session).filter(([key]) => !MEDIA_FIELD_SET.has(key))
     ))
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions }))
@@ -124,18 +136,24 @@ export const sessionStore = {
       updatedAt: now.toISOString()
     }
     setSessions(sessions => [session, ...sessions])
+    void saveSessionMedia(session)
     return session
   },
   updateSession(id, patch) {
-    setSessions(sessions => sessions.map(session => (
+    const updated = state.sessions.map(session => (
       session.id === id ? { ...session, ...patch, id: session.id, updatedAt: new Date().toISOString() } : session
-    )))
+    ))
+    setSessions(() => updated)
+    const session = updated.find(item => item.id === id)
+    if (session) void saveSessionMedia(session)
   },
   deleteSession(id) {
     setSessions(sessions => sessions.filter(session => session.id !== id))
+    void deleteSessionMedia(id)
   },
   clearAll() {
     setSessions(() => [])
+    void clearSessionMedia()
   },
   getSessionById(id) {
     return state.sessions.find(session => session.id === id)

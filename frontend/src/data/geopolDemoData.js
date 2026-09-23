@@ -6,7 +6,7 @@ export const GEOPOL_METRICS = [
 ]
 
 export const GEOPOL_CHECKPOINTS = [
-  { id: 'raxual-icp', name: 'Raxaul ICP', state: 'Bihar', type: 'Land checkpoint', coordinates: [84.8507, 26.9836], activity: 118, risk: 31, face: 14, csii: 18, lastSeen: '10:42 IST' },
+  { id: 'raxaul-icp', name: 'Raxaul ICP', state: 'Bihar', type: 'Land checkpoint', coordinates: [84.8507, 26.9836], activity: 118, risk: 31, face: 14, csii: 18, lastSeen: '10:42 IST' },
   { id: 'petrapole-icp', name: 'Petrapole ICP', state: 'West Bengal', type: 'Land checkpoint', coordinates: [88.8858, 23.0536], activity: 96, risk: 22, face: 9, csii: 12, lastSeen: '10:25 IST' },
   { id: 'attari-icp', name: 'Attari ICP', state: 'Punjab', type: 'Land checkpoint', coordinates: [74.6052, 31.6046], activity: 74, risk: 19, face: 7, csii: 9, lastSeen: '09:58 IST' },
   { id: 'moreh-icp', name: 'Moreh ICP', state: 'Manipur', type: 'Land checkpoint', coordinates: [94.3013, 24.2475], activity: 58, risk: 17, face: 8, csii: 11, lastSeen: '09:38 IST' },
@@ -17,18 +17,57 @@ export const GEOPOL_CHECKPOINTS = [
   { id: 'chennai-airport', name: 'Chennai Airport', state: 'Tamil Nadu', type: 'Airport', coordinates: [80.1636, 12.9941], activity: 76, risk: 12, face: 5, csii: 5, lastSeen: '09:31 IST' },
   { id: 'guwahati-airport', name: 'Guwahati Airport', state: 'Assam', type: 'Airport', coordinates: [91.5859, 26.1061], activity: 52, risk: 13, face: 4, csii: 8, lastSeen: '08:57 IST' },
   { id: 'agartala-icp', name: 'Agartala ICP', state: 'Tripura', type: 'Land checkpoint', coordinates: [91.2868, 23.8315], activity: 44, risk: 10, face: 3, csii: 6, lastSeen: '08:34 IST' },
-  { id: 'bagdogra-airport', name: 'Bagdogra Airport', state: 'West Bengal', type: 'Airport', coordinates: [88.3286, 26.6812], activity: 49, risk: 9, face: 4, csii: 5, lastSeen: '08:26 IST' }
+  { id: 'bagdogra-airport', name: 'Bagdogra Airport', state: 'West Bengal', type: 'Airport', coordinates: [88.3286, 26.6812], activity: 49, risk: 9, face: 4, csii: 5, lastSeen: '08:26 IST' },
+  { id: 'jammu-checkpoint', name: 'Jammu', state: 'Jammu and Kashmir', type: 'Regional checkpoint', coordinates: [74.857, 32.7266], activity: 41, risk: 13, face: 5, csii: 7, lastSeen: '10:08 IST' }
 ]
+
+function curvedLine(start, end, bend = 1.8, steps = 44) {
+  const [startLng, startLat] = start
+  const [endLng, endLat] = end
+  const midLng = (startLng + endLng) / 2
+  const midLat = (startLat + endLat) / 2
+  const dx = endLng - startLng
+  const dy = endLat - startLat
+  const distance = Math.max(Math.sqrt(dx * dx + dy * dy), 1)
+  const control = [
+    midLng - (dy / distance) * bend,
+    midLat + (dx / distance) * bend
+  ]
+
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const t = index / steps
+    const inverse = 1 - t
+    return [
+      inverse * inverse * startLng + 2 * inverse * t * control[0] + t * t * endLng,
+      inverse * inverse * startLat + 2 * inverse * t * control[1] + t * t * endLat
+    ]
+  })
+}
+
+const raxaul = [84.8507, 26.9836]
+const jammu = [74.857, 32.7266]
 
 export const GEOPOL_TRAILS = [
   {
-    id: 'talon-20260921-raxual-delhi-mumbai',
+    id: 'talon-20260923-raxaul-jammu',
+    subject: 'MINT W****',
+    document: 'PASSPORT · IND · ZA270***',
+    risk: 'Review',
+    summary: 'Demo movement record connecting Raxaul to Jammu with a direct intelligence link.',
+    routeCoordinates: curvedLine(raxaul, jammu),
+    events: [
+      { id: 'trail-rjx-1', checkpointId: 'raxaul-icp', name: 'Raxaul ICP', coordinates: raxaul, type: 'ENTRY', time: '08:20 IST', score: 0.91 },
+      { id: 'trail-rjx-2', checkpointId: 'jammu-checkpoint', name: 'Jammu', coordinates: jammu, type: 'SIGHTING', time: '18:45 IST', score: 0.67 }
+    ]
+  },
+  {
+    id: 'talon-20260921-raxaul-delhi-mumbai',
     subject: 'RAHUL S****',
     document: 'VISA · IND · J12****7',
     risk: 'Review',
     summary: 'Synthetic route built from verification timestamps. Raxaul to Delhi to Mumbai within one operational day.',
     events: [
-      { id: 'trail-1', checkpointId: 'raxual-icp', name: 'Raxaul ICP', coordinates: [84.8507, 26.9836], type: 'ENTRY', time: '08:20 IST', score: 0.84 },
+      { id: 'trail-1', checkpointId: 'raxaul-icp', name: 'Raxaul ICP', coordinates: [84.8507, 26.9836], type: 'ENTRY', time: '08:20 IST', score: 0.84 },
       { id: 'trail-2', checkpointId: 'igi-delhi', name: 'Delhi IGI', coordinates: [77.1008, 28.5562], type: 'CHECK-IN', time: '14:45 IST', score: 0.62 },
       { id: 'trail-3', checkpointId: 'mumbai-airport', name: 'Mumbai Airport', coordinates: [72.8747, 19.0896], type: 'EXIT', time: '20:10 IST', score: 0.48 }
     ]
@@ -74,7 +113,7 @@ export function trailToFeatureCollection(trail) {
         properties: { id: trail.id, subject: trail.subject },
         geometry: {
           type: 'LineString',
-          coordinates: trail.events.map(event => event.coordinates)
+          coordinates: trail.routeCoordinates || trail.events.map(event => event.coordinates)
         }
       },
       ...trail.events.map((event, index) => ({

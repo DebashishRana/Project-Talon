@@ -52,7 +52,9 @@ function SessionRow({ session, selected, onSelect, onOpen, onContextMenu }) {
       </td>
       <td>
         <div className="vl-session-cell">
-          <span className="vl-hash">{displayFaceReference(session.faceHash)}...</span>
+          {session.documentFaceBase64 || session.liveFaceBase64
+            ? <img className="vl-face-thumb" src={session.documentFaceBase64 || session.liveFaceBase64} alt="Captured face" />
+            : <span className="vl-hash">{displayFaceReference(session.faceHash)}...</span>}
           <div>
             <strong>{session.id}</strong>
             <small>{session.subjectNameMasked} · {session.subjectNationality} · <b>{session.documentType.replaceAll('_', ' ')}</b></small>

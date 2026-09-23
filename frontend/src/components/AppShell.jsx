@@ -2,15 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
-  Bot,
   BarChart3,
   ChevronLeft,
   ChevronRight,
   FileText,
-  Gauge,
   Lock,
   LogOut,
-  MapPinned,
   Network,
   Plug,
   ScanLine,
@@ -24,6 +21,14 @@ import { useRBACStore } from '../store/rbacStore'
 import './AppShell.css'
 
 const COLLAPSE_KEY = 'talon_nav_collapsed_v1'
+
+function ChatIcon({ size = 15 }) {
+  return <img className="app-nav-custom-icon" src="/icons/chat.svg" width={size} height={size} alt="" aria-hidden="true" />
+}
+
+function AssetIcon({ src, size = 15 }) {
+  return <img className="app-nav-custom-icon" src={src} width={size} height={size} alt="" aria-hidden="true" />
+}
 
 function NavItem({ to, icon: Icon, label, end = false }) {
   return (
@@ -99,14 +104,14 @@ export default function AppShell({ children, isDarkMode, onToggleTheme }) {
 
         <nav className="app-nav">
           <NavSection title="Overview">
-            {canReadDashboard && <NavItem to="/dashboard" icon={Gauge} label="Dashboard" />}
-            <NavItem to="/ask-talon" icon={Bot} label="Ask Talon" />
+            {canReadDashboard && <NavItem to="/dashboard" icon={() => <AssetIcon src="/icons/dashboard.svg" />} label="Dashboard" />}
+            <NavItem to="/ask-talon" icon={ChatIcon} label="Ask Talon" />
           </NavSection>
 
           <NavSection title="Verification">
             {canCreateSessions && <NavItem to="/upload/authorize" icon={ScanLine} label="New Verification" />}
             {canReadLogs && <NavItem to="/verifications" icon={FileText} label="Verification Logs" end />}
-            {canReadDevices && <NavItem to="/geopol" icon={MapPinned} label="Geopol" />}
+            {canReadDevices && <NavItem to="/geopol" icon={() => <AssetIcon src="/icons/maps.svg" />} label="Geopol" />}
             {canReadCsii && <NavItem to="/csii" icon={Network} label="CSII" />}
           </NavSection>
 

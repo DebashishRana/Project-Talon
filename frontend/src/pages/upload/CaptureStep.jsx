@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CameraOverlay from '../../components/upload/CameraOverlay'
-import { documentTypes } from '../../components/upload/DocumentTypeSelector'
 import { flagEmoji } from '../../components/upload/CountrySelector'
+import { documentTypes } from '../../data/documentTypes'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
 
 function requiresBack(documentType) {

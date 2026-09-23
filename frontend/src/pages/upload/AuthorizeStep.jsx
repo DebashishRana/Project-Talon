@@ -117,7 +117,7 @@ function AuthorizeStep({ step }) {
       <div className="assigned-checkpoint-panel" aria-live="polite">
         <span>Designated checkpoint</span>
         {assignedCheckpoint ? (
-          <strong>{assignedCheckpoint.name}<small>{assignedCheckpoint.city}, {assignedCheckpoint.state}</small></strong>
+          <strong>{assignedCheckpoint.name}<small>{[assignedCheckpoint.city, assignedCheckpoint.state].filter(Boolean).join(', ')}</small></strong>
         ) : (
           <strong className="missing">No checkpoint assigned<small>Update this officer profile in Settings before authorization.</small></strong>
         )}

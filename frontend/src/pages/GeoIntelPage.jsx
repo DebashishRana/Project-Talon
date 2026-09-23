@@ -3,19 +3,11 @@ import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { AlertTriangle, ChevronRight, Clock3, Layers, LocateFixed, MapPinned, Search } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { GEOPOL_CHECKPOINTS, GEOPOL_METRICS, checkpointsToFeatureCollection } from '../data/geopolDemoData'
+import { GEOPOL_CHECKPOINTS, GEOPOL_METRICS, GEOPOL_TRAILS, checkpointsToFeatureCollection, trailToFeatureCollection } from '../data/geopolDemoData'
 import { useSessionStore } from '../store/sessionStore'
 import './GeoIntelPage.css'
 
 const indiaBounds = [[66.2, 6.4], [99.6, 37.8]]
-const demoMovement = {
-  type: 'FeatureCollection',
-  features: [
-    { type: 'Feature', properties: { id: 'ahmedabad-check-in', label: 'CHECK-IN', name: 'Ahmedabad Airport' }, geometry: { type: 'Point', coordinates: [72.6347, 23.0772] } },
-    { type: 'Feature', properties: { id: 'ranchi-exit', label: 'EXIT', name: 'Ranchi Airport' }, geometry: { type: 'Point', coordinates: [85.3217, 23.3143] } },
-    { type: 'Feature', properties: { id: 'ahmedabad-ranchi-route' }, geometry: { type: 'LineString', coordinates: [[72.6347, 23.0772], [85.3217, 23.3143]] } }
-  ]
-}
 const heatmapDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const heatmapMonths = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL']
 const heatmapCells = Array.from({ length: heatmapDays.length * heatmapMonths.length }, (_, index) => ({
@@ -46,6 +38,23 @@ function riskClass(value) {
   return 'normal'
 }
 
+function trailCoordinates(trail) {
+  return trail?.routeCoordinates || trail?.events?.map(event => event.coordinates) || []
+}
+
+function trailMatches(trail, query) {
+  const term = query.trim().toLowerCase()
+  if (!term) return true
+  return [
+    trail.id,
+    trail.subject,
+    trail.document,
+    trail.risk,
+    trail.summary,
+    ...(trail.events || []).flatMap(event => [event.name, event.type, event.time])
+  ].some(value => String(value || '').toLowerCase().includes(term))
+}
+
 export default function GeoIntelPage() {
   const [searchParams] = useSearchParams()
   const identityId = searchParams.get('identity')
@@ -56,8 +65,11 @@ export default function GeoIntelPage() {
   const [mode, setMode] = useState('checkpoint')
   const [verificationId, setVerificationId] = useState('')
   const [showHeatmap, setShowHeatmap] = useState(true)
-  const [selectedCheckpointId, setSelectedCheckpointId] = useState('raxual-icp')
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState('raxaul-icp')
+  const [selectedTrailId, setSelectedTrailId] = useState('talon-20260923-raxaul-jammu')
   const selectedCheckpoint = GEOPOL_CHECKPOINTS.find(item => item.id === selectedCheckpointId) || GEOPOL_CHECKPOINTS[0]
+  const filteredTrails = useMemo(() => GEOPOL_TRAILS.filter(trail => trailMatches(trail, verificationId)), [verificationId])
+  const activeTrail = filteredTrails.find(trail => trail.id === selectedTrailId) || filteredTrails[0] || GEOPOL_TRAILS[0]
   const activeMetric = GEOPOL_METRICS.find(item => item.id === metric) || GEOPOL_METRICS[1]
   const totals = useMemo(() => GEOPOL_CHECKPOINTS.reduce((acc, item) => ({
     activity: acc.activity + item.activity,
@@ -65,6 +77,14 @@ export default function GeoIntelPage() {
     face: acc.face + item.face,
     csii: acc.csii + item.csii
   }), { activity: 0, risk: 0, face: 0, csii: 0 }), [])
+
+  const fitTrail = trail => {
+    const coordinates = trailCoordinates(trail)
+    const map = mapRef.current
+    if (!map || coordinates.length < 2) return
+    const bounds = coordinates.reduce((nextBounds, coordinate) => nextBounds.extend(coordinate), new maplibregl.LngLatBounds(coordinates[0], coordinates[0]))
+    map.fitBounds(bounds, { padding: 72, duration: 850, maxZoom: 6.8 })
+  }
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -84,7 +104,7 @@ export default function GeoIntelPage() {
 
     map.on('load', () => {
       map.addSource('checkpoints', { type: 'geojson', data: checkpointsToFeatureCollection(metric) })
-      map.addSource('demo-movement', { type: 'geojson', data: demoMovement })
+      map.addSource('demo-movement', { type: 'geojson', data: trailToFeatureCollection(activeTrail) })
 
       map.addLayer({
         id: 'checkpoint-heat',
@@ -103,14 +123,15 @@ export default function GeoIntelPage() {
         type: 'line',
         source: 'demo-movement',
         filter: ['==', ['geometry-type'], 'LineString'],
-        paint: { 'line-color': '#2563eb', 'line-width': 3, 'line-opacity': 0.9 }
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#4f46e5', 'line-width': 5, 'line-opacity': 0.94 }
       })
       map.addLayer({
         id: 'demo-movement-points',
         type: 'circle',
         source: 'demo-movement',
         filter: ['==', ['geometry-type'], 'Point'],
-        paint: { 'circle-color': ['case', ['==', ['get', 'label'], 'CHECK-IN'], '#16a34a', '#dc2626'], 'circle-radius': 8, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 }
+        paint: { 'circle-color': ['case', ['==', ['get', 'sequence'], 1], '#16a34a', '#dc2626'], 'circle-radius': 8, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 }
       })
       map.addLayer({
         id: 'demo-movement-labels',
@@ -141,6 +162,9 @@ export default function GeoIntelPage() {
         paint: { 'text-color': '#1f2937', 'text-halo-color': '#ffffff', 'text-halo-width': 1.2 }
       })
       ;['demo-movement-line', 'demo-movement-points', 'demo-movement-labels'].forEach(layerId => {
+        if (map.getLayer(layerId)) map.moveLayer(layerId)
+      })
+      ;['demo-movement-line', 'demo-movement-points', 'demo-movement-labels'].forEach(layerId => {
         map.setLayoutProperty(layerId, 'visibility', mode === 'movement' ? 'visible' : 'none')
       })
 
@@ -162,11 +186,13 @@ export default function GeoIntelPage() {
     const map = mapRef.current
     if (!map?.isStyleLoaded()) return
     map.getSource('checkpoints')?.setData(checkpointsToFeatureCollection(metric))
+    map.getSource('demo-movement')?.setData(trailToFeatureCollection(activeTrail))
     if (map.getLayer('checkpoint-heat')) map.setLayoutProperty('checkpoint-heat', 'visibility', showHeatmap ? 'visible' : 'none')
     ;['demo-movement-line', 'demo-movement-points', 'demo-movement-labels'].forEach(layerId => {
       if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', mode === 'movement' ? 'visible' : 'none')
     })
-  }, [metric, showHeatmap, mode])
+    if (mode === 'movement') fitTrail(activeTrail)
+  }, [metric, showHeatmap, mode, activeTrail])
 
   const focusCheckpoint = checkpoint => {
     setSelectedCheckpointId(checkpoint.id)
@@ -190,14 +216,14 @@ export default function GeoIntelPage() {
 
     <section className="geopol-toolbar" aria-label="Map controls">
       <div className="geopol-segments" role="group" aria-label="Geospatial analysis mode">
-        <button type="button" aria-pressed={mode === 'checkpoint'} onClick={() => setMode('checkpoint')}>Select checkpoint</button>
+        <button type="button" aria-pressed={mode === 'checkpoint'} onClick={() => setMode('checkpoint')}>View checkpoint</button>
         <button type="button" aria-pressed={mode === 'heatmap'} onClick={() => setMode('heatmap')}>Heatmap analysis</button>
         <button type="button" aria-pressed={mode === 'movement'} onClick={() => setMode('movement')}>Investigate movement</button>
       </div>
-      {mode === 'checkpoint' && <label className="geopol-control-label">Checkpoint<select value={selectedCheckpointId} onChange={event => focusCheckpoint(GEOPOL_CHECKPOINTS.find(item => item.id === event.target.value))}>{GEOPOL_CHECKPOINTS.map(checkpoint => <option key={checkpoint.id} value={checkpoint.id}>{checkpoint.name}</option>)}</select></label>}
+      {(mode === 'checkpoint' || mode === 'heatmap') && <label className="geopol-control-label">Checkpoint<select value={selectedCheckpointId} onChange={event => focusCheckpoint(GEOPOL_CHECKPOINTS.find(item => item.id === event.target.value))}>{GEOPOL_CHECKPOINTS.map(checkpoint => <option key={checkpoint.id} value={checkpoint.id}>{checkpoint.name}</option>)}</select></label>}
       {mode === 'heatmap' && <button className="geopol-toggle" type="button" aria-pressed={showHeatmap} onClick={() => setShowHeatmap(value => !value)}><Layers size={15} /> Heatmap {showHeatmap ? 'on' : 'off'}</button>}
       {mode === 'heatmap' && <label className="geopol-control-label">Analysis<select value={metric} onChange={event => setMetric(event.target.value)}>{GEOPOL_METRICS.filter(item => item.id !== 'activity').map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}
-      {mode === 'movement' && <label className="geopol-search-control"><Search size={15} /><input value={verificationId} onChange={event => setVerificationId(event.target.value)} placeholder="Enter verification ID" aria-label="Enter verification ID" /></label>}
+      {mode === 'movement' && <label className="geopol-search-control"><Search size={15} /><input value={verificationId} onChange={event => setVerificationId(event.target.value)} placeholder="Search verification or route" aria-label="Search verification or route" /></label>}
     </section>
 
     <main className="geopol-workspace">
@@ -229,11 +255,36 @@ export default function GeoIntelPage() {
 
         {mode === 'heatmap' && <section className="geopol-heatmap-card">
           <span className="geopol-card-label">Heatmap analysis</span>
-          <div className="geopol-heatmap-grid" aria-label="Verification activity heatmap">
-            <div className="geopol-heatmap-cells">{heatmapCells.map((cell, index) => <span className={`heatmap-cell heatmap-level-${Math.min(4, Math.floor(cell.value / 20))}`} key={index}>{cell.label}</span>)}</div>
-            <div className="geopol-heatmap-days">{heatmapDays.map(day => <b key={day}>{day}</b>)}</div>
+          <div className="geopol-heatmap-scroll">
+            <div className="geopol-heatmap-grid" aria-label="Verification activity heatmap">
+              <div className="geopol-heatmap-main">
+                <div className="geopol-heatmap-cells">{heatmapCells.map((cell, index) => <span className={`heatmap-cell heatmap-level-${Math.min(4, Math.floor(cell.value / 20))}`} key={index}>{cell.label}</span>)}</div>
+                <div className="geopol-heatmap-months">{heatmapMonths.map((month, index) => <b key={`${month}-${index}`}>{month}</b>)}</div>
+              </div>
+              <div className="geopol-heatmap-days">{heatmapDays.map(day => <b key={day}>{day}</b>)}</div>
+            </div>
           </div>
-          <div className="geopol-heatmap-months">{heatmapMonths.map((month, index) => <b key={`${month}-${index}`}>{month}</b>)}</div>
+        </section>}
+
+        {mode === 'movement' && <section className="geopol-trail">
+          <span className="geopol-card-label">Movement investigation</span>
+          <h2>{activeTrail.subject}</h2>
+          <p>{activeTrail.document}</p>
+          <span className={`geopol-trail-risk ${String(activeTrail.risk).toLowerCase()}`}>{activeTrail.risk}</span>
+          <ol>
+            {activeTrail.events.map(event => <li key={event.id}>
+              <span>{event.type}</span>
+              <strong>{event.name}</strong>
+              <small>{event.time} · score {Math.round(event.score * 100)}%</small>
+            </li>)}
+          </ol>
+          <footer><LocateFixed size={14} /> {activeTrail.summary}</footer>
+          <div className="geopol-trail-records">
+            {filteredTrails.map(trail => <button type="button" key={trail.id} className={trail.id === activeTrail.id ? 'active' : ''} onClick={() => { setSelectedTrailId(trail.id); fitTrail(trail) }}>
+              <span><strong>{trail.id}</strong><small>{trail.events.map(event => event.name).join(' -> ')}</small></span>
+            </button>)}
+            {!filteredTrails.length && <p>No movement records match this search.</p>}
+          </div>
         </section>}
 
       </aside>

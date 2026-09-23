@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { documentTypes } from '../../components/upload/DocumentTypeSelector'
 import { flagEmoji } from '../../components/upload/CountrySelector'
+import { documentTypes } from '../../data/documentTypes'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
 import { fileToBase64 } from '../../utils/camera'
 import { UploadCard } from './UploadRouter'

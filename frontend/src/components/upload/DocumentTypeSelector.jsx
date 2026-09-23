@@ -1,18 +1,12 @@
 import React from 'react'
-
-export const documentTypes = [
-  { id: 'PASSPORT', label: 'Passport', icon: 'P', iconFile: 'passport.webp', requiresBack: true },
-  { id: 'VISA', label: 'Visa', icon: 'V', iconFile: 'visa.webp', requiresBack: false },
-  { id: 'NATIONAL_ID', label: 'National ID', icon: 'ID', iconFile: 'national-id.webp', requiresBack: true },
-  { id: 'AADHAAR_PAN', label: 'Aadhaar / PAN', icon: 'A', iconFile: 'aadhaar-pan.webp', requiresBack: true }
-]
+import { documentTypes } from '../../data/documentTypes'
 
 function DocumentIcon({ type }) {
   return (
     <span className="document-type-icon">
       {type.iconFile && (
         <img
-          src={`/icons/${type.iconFile}`}
+          src={`/icons/doc%20types/${encodeURIComponent(type.iconFile)}`}
           alt=""
           onError={event => {
             event.currentTarget.hidden = true

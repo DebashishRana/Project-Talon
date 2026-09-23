@@ -28,7 +28,7 @@ export const csiiMockResult = {
       { id: 'e3', source: 'identity-current', target: 'document-current', type: 'PRESENTED_DOCUMENT', severity: 'normal', label: 'current' },
       { id: 'e4', source: 'document-current', target: 'document-prior', type: 'DOCUMENT_REUSE', severity: 'critical', label: 'reuse' },
       { id: 'e5', source: 'identity-current', target: 'travel-1', type: 'TRAVEL_EVENT', severity: 'normal', label: 'entry' },
-      { id: 'e6', source: 'travel-1', target: 'travel-2', type: 'IMPOSSIBLE_TRAVEL', severity: 'critical', label: 'time' },
+      { id: 'e6', source: 'travel-1', target: 'travel-2', type: 'IMPOSSIBLE_TRAVEL', severity: 'critical', label: 'time', displayLabel: '' },
       { id: 'e7', source: 'travel-2', target: 'travel-3', type: 'TRAVEL_EVENT', severity: 'normal', label: 'exit' }
     ]
   }

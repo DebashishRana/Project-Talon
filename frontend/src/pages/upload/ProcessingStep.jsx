@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { documentTypes } from '../../components/upload/DocumentTypeSelector'
+import { documentTypes } from '../../data/documentTypes'
 import { newSessionStore, useNewSessionStore } from '../../store/newSessionStore'
 import { compareDocumentFaceWithLive } from '../../utils/awsRekognition'
 import { subjectFields } from '../../utils/documentAnalysis'

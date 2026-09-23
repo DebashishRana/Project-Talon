@@ -126,6 +126,22 @@ export const countrySections = [
   ...continentSections
 ]
 
+const assetCountryCodes = `AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW`.split(' ')
+
+const displayNames = typeof Intl !== 'undefined' && Intl.DisplayNames
+  ? new Intl.DisplayNames(['en'], { type: 'region' })
+  : null
+
+const assetCountries = assetCountryCodes.map(code => ({
+  code,
+  iso3: code,
+  name: displayNames?.of(code) || code
+}))
+
+const allCountries = [...countries, ...assetCountries].filter((country, index, list) => (
+  list.findIndex(candidate => candidate.code === country.code) === index
+))
+
 export const countries = countrySections
   .flatMap(section => section.countries)
   .filter((country, index, allCountries) => (
@@ -152,7 +168,7 @@ const countryIconFiles = {
 
 function countryIconSource(country) {
   const file = countryIconFiles[country?.code]
-  return file ? `/icons/countries/${file}` : ''
+  return file ? `/icons/countries/${file}` : `/icons/countries/${String(country?.code || '').toLowerCase()}.png`
 }
 
 function CountryFlag({ country }) {
@@ -186,11 +202,11 @@ function CountryButton({ country, onSelect }) {
 function CountrySelector({ value, onChange }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const selected = value || countries[0]
+  const selected = value || allCountries[0]
   const filtered = useMemo(() => {
     const needle = query.toLowerCase().trim()
-    if (!needle) return countries
-    return countries.filter(country =>
+    if (!needle) return allCountries
+    return allCountries.filter(country =>
       country.name.toLowerCase().includes(needle) ||
       country.code.toLowerCase().includes(needle) ||
       country.iso3.toLowerCase().includes(needle)
@@ -218,7 +234,7 @@ function CountrySelector({ value, onChange }) {
               <CountryButton country={country} key={country.code} onSelect={selectCountry} />
             ))
           ) : (
-            countrySections.map(section => (
+            [...countrySections, { title: 'Other countries', countries: assetCountries.filter(country => !countries.some(item => item.code === country.code)) }].map(section => (
               <Fragment key={section.title}>
                 <div className="country-menu-heading">{section.title}</div>
                 {section.countries.map(country => (

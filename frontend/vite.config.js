@@ -46,6 +46,9 @@ function localIconsPlugin() {
 
 export default defineConfig({
   plugins: [react(), localIconsPlugin()],
+  optimizeDeps: {
+    exclude: ['maplibre-gl']
+  },
   resolve: {
     alias: {
       '@talon-mrz': path.resolve(__dirname, '../../src/lib/mrz/index.ts')
@@ -53,6 +56,12 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    watch: {
+      ignored: [
+        '**/frontend/icons/**',
+        '**\\frontend\\icons\\**'
+      ]
+    },
     fs: { allow: [path.resolve(__dirname, '../..')] },
     proxy: {
       '/api': {

@@ -4,8 +4,11 @@ const DOCUMENT_TYPE_LABELS = {
   PASSPORT: 'Passport',
   VISA: 'Visa',
   AADHAAR: 'Aadhaar',
+  PAN: 'PAN Card',
+  NATIONAL_PERMIT: 'National Permit',
   AADHAAR_PAN: 'Aadhaar / PAN',
-  NATIONAL_ID: 'National ID',
+  NATIONAL_ID: 'National Permit',
+  DRIVING_LICENSE: 'Driving License',
   PERMIT: 'Permit'
 }
 

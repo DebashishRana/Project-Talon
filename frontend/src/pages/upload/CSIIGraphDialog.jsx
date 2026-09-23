@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Background, Controls, Handle, MarkerType, MiniMap, Position, ReactFlow } from '@xyflow/react'
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { AlertTriangle, FileText, Fingerprint, Network, Plane, ShieldCheck, UserRound, X } from 'lucide-react'
 import './CSIIGraphDialog.css'
@@ -68,12 +68,15 @@ function toFlowGraph(graph, filter) {
       ...edge,
       type: 'default',
       data: { relationship: edge.type },
-      animated: edge.severity === 'critical',
+      animated: edge.severity === 'critical' && !['TRAVEL_EVENT', 'IMPOSSIBLE_TRAVEL'].includes(edge.type),
       markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
       className: `csii-edge ${edge.severity || 'normal'} ${edge.type.toLowerCase()}`,
-      labelStyle: { fill: '#334155', fontSize: 10, fontWeight: 800 },
+      label: edge.displayLabel ?? (['TRAVEL_EVENT', 'IMPOSSIBLE_TRAVEL'].includes(edge.type) ? '' : edge.label),
+      labelStyle: ['TRAVEL_EVENT', 'IMPOSSIBLE_TRAVEL'].includes(edge.type)
+        ? { fill: '#15803d', fontSize: 10, fontWeight: 700 }
+        : { fill: '#334155', fontSize: 10, fontWeight: 800 },
       labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92 },
-      labelBgPadding: [4, 3],
+      labelBgPadding: [8, 4],
     }))
   return { nodes, edges }
 }
@@ -127,7 +130,6 @@ export default function CSIIGraphDialog({ result, loading, error, onClose, onSce
                 : <ReactFlow nodes={graph.nodes} edges={graph.edges} nodeTypes={nodeTypes} fitView minZoom={0.35} maxZoom={1.5} onNodeClick={(_, node) => setSelectedNode(node)} proOptions={{ hideAttribution: true }}>
                   <Background color="#dbe5f0" gap={22} size={1} />
                   <Controls showInteractive={false} />
-                  <MiniMap pannable zoomable nodeColor={node => node.data?.severity === 'critical' ? '#dc2626' : '#2563eb'} />
                 </ReactFlow>}
           </section>
 

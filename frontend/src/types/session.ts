@@ -37,7 +37,7 @@ export interface Session {
   // opaque, non-biometric session evidence reference such as FACE-REF-ABC123.
   faceHash: string;
   faceReferenceType?: 'SESSION_EVIDENCE_REFERENCE';
-  documentType: 'PASSPORT' | 'VISA' | 'AADHAAR' | 'PAN' | 'DRIVING_LICENSE' | 'PERMIT';
+  documentType: 'PASSPORT' | 'VISA' | 'AADHAAR' | 'PAN' | 'DRIVING_LICENSE' | 'NATIONAL_PERMIT' | 'PERMIT';
   documentNumberMasked: string;
   documentCountry: string;
   pipeline: PipelineResult[];
