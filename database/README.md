@@ -1,6 +1,6 @@
-# SentinelTrail — MySQL V1 database
+# Talon - MySQL V1 Database
 
-SentinelTrail is an officer-assist identity and travel-document screening project for Smart India Hackathon problem **SIH26188**. This directory contains the validated V1 baseline plus a subsequent user-authentication migration: six ordered MySQL 8.0 migration files, a synthetic demonstration seed, and design, validation, and ERD documentation. The database organizes cases, document and live-capture evidence, versioned analysis results, explainable risk assessments, officer decisions, and retention/audit records. It does not itself run OCR, detect forgeries, match faces, authorize access, or make border decisions.
+Talon is an officer-assist identity and travel-document screening project for Smart India Hackathon problem **SIH26188**. This directory contains the validated V1 baseline plus a subsequent user-authentication migration: six ordered MySQL 8.0 migration files, a synthetic demonstration seed, and design, validation, and ERD documentation. The database organizes cases, document and live-capture evidence, versioned analysis results, explainable risk assessments, officer decisions, and retention/audit records. It does not itself run OCR, detect forgeries, match faces, authorize access, or make border decisions.
 
 ## Architecture and boundaries
 
