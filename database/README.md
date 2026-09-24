@@ -1,6 +1,6 @@
 # SentinelTrail — MySQL V1 database
 
-SentinelTrail is an officer-assist identity and travel-document screening project for Smart India Hackathon problem **SIH26188**. This directory is its **validated V1 database package**: five forward-only MySQL 8.0 migrations, a synthetic demonstration seed, and design, validation, and ERD documentation. The database organizes cases, document and live-capture evidence, versioned analysis results, explainable risk assessments, officer decisions, and retention/audit records. It does not itself run OCR, detect forgeries, match faces, authorize access, or make border decisions.
+SentinelTrail is an officer-assist identity and travel-document screening project for Smart India Hackathon problem **SIH26188**. This directory contains the validated V1 baseline plus a subsequent user-authentication migration: six ordered MySQL 8.0 migration files, a synthetic demonstration seed, and design, validation, and ERD documentation. The database organizes cases, document and live-capture evidence, versioned analysis results, explainable risk assessments, officer decisions, and retention/audit records. It does not itself run OCR, detect forgeries, match faces, authorize access, or make border decisions.
 
 ## Architecture and boundaries
 
@@ -19,7 +19,7 @@ Backend ──────────────► MySQL 8.0: cases, metadata
                          officer review ──► backend-recorded workflow decision
 ```
 
-The backend must enforce authorization, media admission, token use, encryption, audit writes, retention, and object access. Workers provide advisory output; an authenticated officer makes the final workflow decision. No external database-as-a-service, vector database, or blockchain is required by V1. See [implementation guardrails](docs/implementation-guardrails.md).
+The backend must enforce authentication and authorization, media admission, token use, encryption, audit writes, retention, and object access. Migration 006 adds optional email and password-hash fields and account-policy metadata to `users`; the backend must provision accounts, generate password hashes, and enforce password-change, MFA, and session policies. Workers provide advisory output; an authenticated officer makes the final workflow decision. No external database-as-a-service, vector database, or blockchain is required by V1. See [implementation guardrails](docs/implementation-guardrails.md).
 
 ## V1 schema and case workflow
 
@@ -27,7 +27,7 @@ The final schema has **30 tables**. `screening_cases` is the hub: a case belongs
 
 | Domain | Tables | Role in V1 |
 | --- | --- | --- |
-| Organization and access | `organizations`, `checkpoints`, `users`, `roles`, `user_roles`, `registered_devices` | Organizational context, personnel, roles, and registered intake devices. |
+| Organization and access | `organizations`, `checkpoints`, `users`, `roles`, `user_roles`, `registered_devices` | Organizational context, personnel, authentication metadata, roles, and registered intake devices. |
 | Case and evidence | `screening_cases`, `case_subjects`, `documents`, `document_files`, `case_media`, `case_access_tokens` | Case intake, protected identity values, document/live-media metadata, and short-lived access-token records. |
 | OCR and MRZ | `extraction_runs`, `extracted_fields`, `mrz_records` | Versioned extraction, masked field displays, MRZ checksums, and visual/MRZ contradictions. |
 | Rules and validation | `rule_sets`, `validation_runs`, `validation_results` | Versioned document rules and explained validation outcomes. |
@@ -35,7 +35,36 @@ The final schema has **30 tables**. `screening_cases` is the hub: a case belongs
 | Risk and human action | `risk_assessments`, `risk_contributions`, `workflow_decisions` | Advisory score and reasons, followed by a separate officer decision. |
 | Accountability and lifecycle | `audit_events`, `retention_policies`, `legal_holds`, `purge_jobs`, `purge_job_items`, `schema_migration_history` | Audit-chain fields, retention policy, hold-aware verified purge records, and migration provenance. |
 
-The [full ERD](docs/erd-full.mmd), [judge-view ERD](docs/erd-judge-view.mmd), and [ERD notes](docs/erd.md) show the final relationships. The judge view groups several result tables for readability; the full ERD names all 30 tables.
+## Schema overview and ER diagram
+
+The domain table above lists every V1 table. This diagram shows the central case and evidence path using actual V1 table names and foreign-key relationships. The surrounding access, audit, retention, legal-hold, purge, and migration-ledger tables are described elsewhere in this README.
+
+```mermaid
+erDiagram
+    screening_cases ||--o| case_subjects : case_id
+    screening_cases ||--o{ documents : case_id
+    screening_cases ||--o{ case_media : case_id
+    documents ||--o{ document_files : document_id
+    documents ||--o{ extraction_runs : document_id
+    document_files ||--o{ extraction_runs : source_file_id
+    extraction_runs ||--o{ extracted_fields : extraction_run_id
+    extraction_runs ||--o| mrz_records : extraction_run_id
+    documents ||--o{ validation_runs : document_id
+    rule_sets ||--o{ validation_runs : rule_set_id
+    validation_runs ||--o{ validation_results : validation_run_id
+    documents ||--o{ forensic_runs : document_id
+    document_files ||--o{ forensic_runs : source_file_id
+    forensic_runs ||--o{ forensic_findings : forensic_run_id
+    screening_cases ||--o{ biometric_checks : case_id
+    case_media o|--o{ biometric_checks : source_case_media_id
+    document_files o|--o{ biometric_checks : source_document_file_id
+    screening_cases ||--o{ risk_assessments : case_id
+    risk_assessments ||--o{ risk_contributions : risk_assessment_id
+    screening_cases ||--o{ workflow_decisions : case_id
+    users ||--o{ workflow_decisions : officer_user_id
+```
+
+`risk_contributions.source_id` and `audit_events.entity_id` are polymorphic references, not foreign keys, so the diagram does not draw invented links from analysis results to risk contributions. The backend also confirms that separately referenced evidence belongs to the same case before workers or officers use it. AI and rule results are advisory; `workflow_decisions` records the final officer action.
 
 ## Evidence, privacy, and security model
 
@@ -76,7 +105,10 @@ Apply the SQL files in filename order to an **empty, authorized** MySQL 8.0 data
 003_seed_demo_data.sql                  Four synthetic cases and supporting demo rows ONLY
 004_security_and_lifecycle_fixes.sql    Masking, access tokens, media lifecycle, ICAO codes, case media, evidence links, workflow corrections
 005_operational_integrity_fixes.sql     Demo media repair, approved-media and biometric checks, two-target purge design, active-rule identity, migration ledger
+006_user_authentication.sql             User email, password-hash and account-policy fields; organization-scoped email uniqueness
 ```
+
+Migration 006 alters `users` only; it does not create a default account. The backend must store an Argon2id or bcrypt hash, never a plaintext password.
 
 The seed's four cases are deliberately small fixtures, not genuine documents or outputs from real AI processing:
 
@@ -91,7 +123,7 @@ The four demo `document_files` rows are marked approved/`not_applicable` by migr
 
 ## Validation status
 
-The package documentation records successful execution of migrations **001–005 on MySQL Server 8.0.45** and a **30-table V1 baseline**. The reported read-back checks include the four seeded cases (one closed; three in review), four approved synthetic document files with `not_applicable` malware status, migrated `IND` issuer codes, and an active issuer-aware demo rule. Static reviews also checked migration ordering, references, and seed compatibility. See the [review fixes](docs/review-fixes.md) and [ERD notes](docs/erd.md).
+The package documentation records successful execution of migrations **001–005 on MySQL Server 8.0.45** and a **30-table V1 baseline**. Migration 006 adds columns and constraints to `users` without adding tables; its execution has not been established by those earlier validation records. The reported read-back checks include the four seeded cases (one closed; three in review), four approved synthetic document files with `not_applicable` malware status, migrated `IND` issuer codes, and an active issuer-aware demo rule. Static reviews also checked migration ordering, references, and seed compatibility. See the [review fixes](docs/review-fixes.md) and [ERD notes](docs/erd.md).
 
 The [disposable-database validation plan](docs/mysql-8-validation-plan.md) is **not a claim that every listed test passed**. It includes negative constraint/FK inserts, token-concurrency and authorization tests, legal-hold and MinIO deletion verification, rule-window publishing tests, and migration-ledger checks. Those require an authorized disposable database plus backend/object-store test harnesses where specified. Do not treat seed rows or schema constraints as proof of end-to-end security or model accuracy.
 
