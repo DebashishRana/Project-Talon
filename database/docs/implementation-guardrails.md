@@ -1,4 +1,4 @@
-# SentinelTrail implementation guardrails
+# Talon implementation guardrails
 
 These rules keep the SIH prototype aligned with its self-hosted, officer-assist design.
 
