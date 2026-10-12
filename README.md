@@ -147,6 +147,7 @@ Source: `models/Passport classfier/passport_classifier.ipynb`
 
 Source: `models/Aadhar Classifier/Aadhar.ipynb'
 
+<img width="2172" height="724" alt="img4" src="https://github.com/user-attachments/assets/76466a66-87cd-4b18-b188-85d2f582d133" />
 
 # TAMPERING AND FORGERY DETECTION | MODULE 3 
 TALON proposes a specialized multi-model deep learning approach for document tampering detection instead of relying on a single generic forgery detector. The system is designed around four dedicated models, each focusing on a different class of manipulation: stamp tampering, material/physical document tampering, face or photograph tampering, and text tampering. Each model independently analyses the document for anomalies within its area of specialization, after which their outputs are combined to produce a more reliable overall tampering assessment. This ensemble-style approach allows TALON to detect both isolated modifications and complex forged documents where multiple elements may have been altered simultaneously, providing a stronger and more explainable basis for downstream risk analysis.
